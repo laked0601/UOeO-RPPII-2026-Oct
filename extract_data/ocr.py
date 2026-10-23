@@ -97,7 +97,7 @@ def ocr_pdf(pdf_path, out_dir, dpi=300, use_cache=True):
     # Render pages to images
     pages_images = render_pages(pdf_path, dpi=dpi)
 
-    # Initialize RapidOCR engine
+    # Initialise RapidOCR engine
     # Text score is the minimum confidence for text to be considered valid
     # Detect score is the minimum confidence for detection.
     # Unclip ratio is the ratio for unclipping the detected text.
