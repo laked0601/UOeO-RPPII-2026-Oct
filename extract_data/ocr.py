@@ -66,7 +66,7 @@ def group_into_rows(detections, y_tolerance_ratio=0.6):
     # Sort the rows top to bottom, then sort each row's items left to right
     rows.sort(key=lambda r: r["vc"])
 
-    return [sorted(row["items"] for row in rows)]
+    return [sorted(row["items"]) for row in rows]
 
 def ocr_page(engine, page_image):
     """

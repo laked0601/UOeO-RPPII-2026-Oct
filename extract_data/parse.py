@@ -289,7 +289,7 @@ def parse_accounts(pages_lines, source_file=""):
                  "label": row["label"],
                  "total": row["values"][-1],
                  "values": row["values"]}
-                for row in table if row["section"].startswith("tangible fixed assets")]
+                for row in table if row["section"].lower().startswith("tangible fixed assets")]
 
     def creditors_rows(section_start):
         """
