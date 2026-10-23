@@ -1,1 +1,3 @@
-mysql-connector-python==26.10.0
+pymupdf
+rapidocr-onnxruntime
+pytest

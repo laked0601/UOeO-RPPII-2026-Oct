@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="85520f43-7f1c-4dc6-89a6-9d0142941e01" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/extract_data/summarise.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/extract_data/test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/extract_data_from_pdf.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_F:/UoEo/UoEo Work/2026.10-12_Research_and_Professional_Practice_2/UOeO-RPPII-2026-Oct" value="3L6C1dOjgj1Ca966xptbZCek6ME" />
+    </persistenceIdMap>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;SamPlumb&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/laked0601/UOeO-RPPII-2026-Oct.git&quot;,
+    &quot;accountId&quot;: &quot;a1cf8258-b27e-4999-a28f-da95ba831242&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0000000034866348" />
+      <entry key="S5" value="1.0006985828980077" />
+      <entry key="S10" value="1.0446570884933728" />
+      <entry key="S30" value="1.7553865164069022" />
+      <entry key="S60" value="3.1401102112576664" />
+      <entry key="M2" value="7.482416692260588" />
+      <entry key="M5" value="24.427754152787973" />
+      <entry key="M10" value="65.24779034463444" />
+      <entry key="M15" value="114.22953248306041" />
+      <entry key="M30" value="255.75894829092948" />
+      <entry key="H1" value="452.0955191391696" />
+      <entry key="H2" value="653.558344636749" />
+      <entry key="H4" value="813.9237271948255" />
+      <entry key="D1" value="1001.3780854097454" />
+      <entry key="W1" value="1040.2869954944656" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="2.209537252893278E-87" />
+      <entry key="S2" value="2.168080144017723E-22" />
+      <entry key="S5" value="2.159887375821588E-9" />
+      <entry key="S10" value="4.654410928613948E-5" />
+      <entry key="S30" value="0.040066152249291456" />
+      <entry key="S60" value="0.25374530711654614" />
+      <entry key="M2" value="0.6889863343627994" />
+      <entry key="M5" value="1.3532236087753593" />
+      <entry key="M10" value="2.0310438236214363" />
+      <entry key="M15" value="2.667074735886425" />
+      <entry key="M30" value="4.356900020523695" />
+      <entry key="H1" value="6.840629462490961" />
+      <entry key="H2" value="9.735300162745208" />
+      <entry key="H4" value="12.223952906526257" />
+      <entry key="D1" value="15.251326529626736" />
+      <entry key="W1" value="15.889623831744172" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9460576467255959" />
+      <entry key="MS500" value="0.9889709163809315" />
+      <entry key="S2" value="0.9972312548322186" />
+      <entry key="S5" value="0.9995895800738066" />
+      <entry key="S10" value="1.0441275163781245" />
+      <entry key="S30" value="1.794020504735702" />
+      <entry key="S60" value="3.3853520344879056" />
+      <entry key="M2" value="8.150283127770722" />
+      <entry key="M5" value="25.746371733844548" />
+      <entry key="M10" value="67.23392818363145" />
+      <entry key="M15" value="116.84782936179701" />
+      <entry key="M30" value="260.0677392756525" />
+      <entry key="H1" value="458.89697430323065" />
+      <entry key="H2" value="663.2665387157051" />
+      <entry key="H4" value="826.1311796025511" />
+      <entry key="D1" value="1016.6260943723166" />
+      <entry key="W1" value="1056.1761286792553" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3L5hxmrxlWsZMw3Wz3QcH3rIJ6R" />
+  <component name="ProjectSessionTemplates">
+    <option name="inlineTemplate">
+      <template>
+        <option name="modeId" value="Agent" />
+        <option name="model">
+          <model>
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="auto" />
+          </model>
+        </option>
+        <option name="targetType" value="BACKGROUND" />
+        <option name="worktreeMode" value="WORKSPACE" />
+      </template>
+    </option>
+  </component>
+  <component name="ProjectViewState">
+    <option name="foldersAlwaysOnTop" value="false" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+    <option name="sortByType" value="true" />
+    <option name="sortKey" value="BY_TYPE" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.main.executor": "Run",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "copilot.chat.legacySessionMetadata.migrated": "true",
+    "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "develop__sam",
+    "git.auto.fetch.suggestion.counter": "1",
+    "ignore.virus.scanning.warn.message": "true",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "F:/UoEo/UoEo Work/2026.10-12_Research_and_Professional_Practice_2/UOeO-RPPII-2026-Oct/extract_data/pdf_files",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "python.packages.toolwindow.project.migrated.to.right.top.v2": "true",
+    "settings.editor.selected.configurable": "reference.idesettings.debugger.python",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct\extract_data\pdf_files" />
+      <recent name="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct" />
+      <recent name="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct\extract_data" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct" />
+      <recent name="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct\extract_data" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="UOeO-RPPII-2026-Oct" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="DEBUG_JUST_MY_CODE" value="false" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="RUN_TOOL" value="" />
+      <option name="SCRIPT_NAME" value="F:\UoEo\UoEo Work\2026.10-12_Research_and_Professional_Practice_2\UOeO-RPPII-2026-Oct\main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-PY-262.10968.92" />
+        <option value="bundled-python-sdk-73a66231627c-5bd6d13a2a75-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-262.10968.92" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="85520f43-7f1c-4dc6-89a6-9d0142941e01" name="Changes" comment="" />
+      <created>1792750084387</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1792750084387</updated>
+      <workItem from="1792750085419" duration="7016000" />
+      <workItem from="1792758272133" duration="9953000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/UOeO_RPPII_2026_Oct$main.coverage" NAME="main Coverage Results" MODIFIED="1792770182269" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
