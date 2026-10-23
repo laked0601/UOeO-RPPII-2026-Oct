@@ -48,11 +48,10 @@ def build_rows(lines):
         # Get numbers from the end of the line
         while fragments and number_patten.match(fragments[-1].strip()):
             values.insert(0, parse_number(fragments.pop()))
-        row = {"label": "  ".join(fragments).strip(), "values": values}
+        row = {"label": " ".join(fragments).strip(), "values": values}
 
         # Re-join wrapped labels
-        if (rows and not rows[-1]["values"] and not row["values"]) and rows[-1]["label"] and values and rows[
-            :1].islower():
+        if rows and not rows[-1]["values"] and rows[-1]["label"] and values and row["label"][:1].islower():
             row["label"] = rows.pop()["label"] + " " + row["label"]
 
         rows.append(row)
@@ -111,8 +110,8 @@ def tag_rows(rows):
                 parent = section.split( " / ")[0]
                 is_subheading = sub_headings.match(heading) and parent
                 section = f"{parent} / {heading}" if is_subheading else heading
-        elif is_year_row(row):
-            # If the row is a year row, tag it as such
+        elif not is_year_row(row):
+            # Keep rows with values, but not the year row, and tag them with the current section
             tagged.append({"section": section,
                            "label": row["label"] or "Total",
                            "values": row["values"]})
@@ -130,7 +129,7 @@ def find_row(table, label, section=None):
     Returns the row if found, otherwise None.
     """
     return next((row for row in table if similar_label(row["label"], label)
-                 and (section is None or row["section"].lower())), None)
+                 and (section is None or section.lower() in row["section"].lower())), None)
 
 def two_year(row, years):
     """
@@ -200,7 +199,7 @@ def parse_company(lines, address_lines, warnings):
     c_address = re.search(r"registered office\s+is\s+(.+?)\.(?:\s|$)", address_lines, re.I)
     # Directors name
     d_name = [lines[i - 1].strip() for i, line in enumerate(lines) if i > 0
-              and line.strip().lower() in ("director", "directors")],
+              and line.strip().lower() in ("director", "directors")]
 
     info = {
         # The first line is usually the company name, but if it's empty, we return None
@@ -220,7 +219,7 @@ def bs_sum(values):
     """
     Sum a list of values, None if any value is missing.
     """
-    return None if values is None else sum(values)
+    return None if None in values or values is None else sum(values)
 
 
 def validate_balance_sheet(balance_sheet, carrying, creditors_total, warnings ):
@@ -261,7 +260,7 @@ def parse_accounts(pages_lines, source_file=""):
     # Locate content pages by their anchor text
     bs_lines = find_page(pages_lines, ["balance sheet", "total equity"], 3, warnings, "balance sheet")
     address_lines = find_page(pages_lines, ["registered office"], 4, warnings, "company address")
-    notes_lines = find_page(pages_lines, ["creditors", "amounts falling due"], 5, warnings, "notes to the accounts")
+    notes_lines = find_page(pages_lines, ["employees", "amounts falling due"], 5, warnings, "notes to the accounts")
 
     company_info = parse_company(bs_lines, " ".join(address_lines), warnings)
 
@@ -284,27 +283,27 @@ def parse_accounts(pages_lines, source_file=""):
     note_years = find_year(note_rows)
     table = tag_rows(note_rows)
 
-    employees = two_year(find_row(table, "Average number of employees"), note_years)
+    employees = two_year(find_row(table, "Total", "Employees"), note_years)
 
     tangible = [{"section": row["section"].split(" / ")[-1],
-                    "label": row["label"],
+                 "label": row["label"],
                  "total": row["values"][-1],
                  "values": row["values"]}
-                    for row in table if row["section"].startswith("tangible fixed assets")]
+                for row in table if row["section"].startswith("tangible fixed assets")]
 
-    def creditors_total(section_start):
+    def creditors_rows(section_start):
         """
-        Find the total creditors total for both years
+        Rows of a creditors table with figures for both years
         """
-        return [{"label": row["label"], "values": two_year(row, years)} for row in table
-                if row["section"].lower().startswith(section_start) and len(row["label"]) >= 2]
+        return [{"label": row["label"], "values": two_year(row, note_years)} for row in table
+                if row["section"].lower().startswith(section_start) and len(row["values"]) >= 2]
 
-    within = creditors_total("creditors: amounts falling due within")
-    after = creditors_total("creditors: amounts falling due after")
+    within = creditors_rows("creditors: amounts falling due within")
+    after = creditors_rows("creditors: amounts falling due after")
 
     # Validate the balance sheet totals and return a list of warnings if any checks fail.
     carrying_rows = [t for t in tangible if t["section"].lower() == "carrying amount"]
-    carrying = {str(y): t["total"] for y, t in zip(years, carrying_rows)}
+    carrying = {str(y): t["total"] for y, t in zip(note_years, carrying_rows)}
     creditors_total = next((r["values"] for r in within if r["label"] == "Total"), None) or {}
     validate_balance_sheet(balance_sheet, carrying, creditors_total, warnings)
 

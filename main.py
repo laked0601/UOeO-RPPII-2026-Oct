@@ -1,20 +1,20 @@
 """
 Main entry point for the extract_data package.
 
-For every PDF this runs the pipeline  OCR -> parse -> summarise  and writes
+For every PDF this runs the pipeline  OCR -> parse and writes
 into the output folder:
     <name>.ocr.json   cached OCR result (re-used on later runs)
     <name>.txt        raw OCR text, page by page, for auditing
-    <name>.json       parsed data + summary + warnings
+    <name>.json       parsed data
 """
 
 import argparse
 import json
 import sys
+from pathlib import Path
+
 from extract_data.ocr import ocr_pdf, rows_to_lines
 from extract_data.parse import parse_accounts
-from extract_data.summarise import summarise
-from pathlib import Path
 
 # Defaults
 default_dpi = 300  # default render resolution for OCR
@@ -32,12 +32,11 @@ def process_pdf(pdf_path, out_dir, dpi, use_cache):
                     for i, lines in enumerate(pages_lines, 1))
     (out_dir / f"{pdf_path.stem}.txt").write_text(raw, encoding="utf-8")
 
-    # Parse the OCR results and summarise them.
+    # Parse the OCR results and save them as JSON
     parsed = parse_accounts(pages_lines, source_file=pdf_path.name)
-    parsed["summary"] = summarise(parsed)
-    (out_dir / f"{pdf_path.stem}.json").write_text(
-       json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
-    return parsed
+    json_path = out_dir / f"{pdf_path.stem}.json"
+    json_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False), encoding="utf-8")
+    return json_path, parsed
 
 
 def main():
@@ -45,7 +44,7 @@ def main():
     Command line Entry point: read the command line, find the PDFs, and process each one.
     """
     # Build the command line parser and read the arguments.
-    ap = argparse.ArgumentParser(description="Extract and summarise Companies House accounts PDFs.")
+    ap = argparse.ArgumentParser(description="Extract Companies House accounts PDFs.")
     ap.add_argument("path", nargs="?", default=default_pdf_path, help="a PDF file, or a folder of PDFs")
     ap.add_argument("--out", default=default_out_dir, help="output folder (default: output)")
     ap.add_argument("--dpi", type=int, default=default_dpi, help="render resolution for OCR")
@@ -67,11 +66,12 @@ def main():
     out_dir = Path(args.out)
     # Create the output directory if it doesn't exist
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Process each PDF and print the summary to the console.
+    # Process each PDF and report where the parsed JSON was saved.
     for pdf in pdfs:
-        parsed = process_pdf(pdf, out_dir, args.dpi, not args.no_cache)
-        print(f"\n===== {pdf.name} =====")
-        print(parsed["summary"])
+        json_path, parsed = process_pdf(pdf, out_dir, args.dpi, not args.no_cache)
+        print(f"{pdf.name} -> {json_path} ({len(parsed['warnings'])}) warnings)")
+        for warning in parsed["warnings"]:
+            print(f" - {warning}")
 
 
 if __name__ == "__main__":

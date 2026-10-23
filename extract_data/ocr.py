@@ -55,24 +55,25 @@ def group_into_rows(detections, y_tolerance_ratio=0.6):
             if abs(l["vc"] - row["vc"]) < y_tolerance_ratio * row["h"]:
                 row["items"].append((l["x"], l["text"]))
                 # Update the running centre and height of the row
-                row["vc"] = (row["vc"] * len(row["items"]) + l["vc"]) / (len(row["items"]) + 1)
+                n = len(row["items"])
+                row["vc"] = (row["vc"] * (n - 1) + l["vc"]) / n
                 row["h"] = max(row["h"], l["h"])
                 break
         else:
             # No existing row found, create a new one
             rows.append({"vc": l["vc"], "h": l["h"], "items": [(l["x"], l["text"])]})
 
-    # Sort the rows top to bottom
+    # Sort the rows top to bottom, then sort each row's items left to right
     rows.sort(key=lambda r: r["vc"])
 
-    return rows
+    return [sorted(row["items"] for row in rows)]
 
 def ocr_page(engine, page_image):
     """
     Run RapidOCR on a single page image and return its text rows
     Each fragment is a tuple of (box, text, confidence).
     """
-    result, _elapsed = engine.ocr(page_image)
+    result, _elapsed = engine(page_image)
     return group_into_rows(result or [])
 
 def ocr_pdf(pdf_path, out_dir, dpi=300, use_cache=True):
@@ -99,11 +100,12 @@ def ocr_pdf(pdf_path, out_dir, dpi=300, use_cache=True):
 
     # Initialise RapidOCR engine
     # Text score is the minimum confidence for text to be considered valid
-    # Detect score is the minimum confidence for detection.
+    # box_thresh is the minimum confidence for detection.
     # Unclip ratio is the ratio for unclipping the detected text.
-    # Lowering text_score and detect_score may increase recall but also false positives.
-    engine = RapidOCR(text_score=0.2, detect_score=0.3, unclip_ratio=2.0)
+    # Lowering text_score and box_thresh may increase recall but also false positives.
+    engine = RapidOCR(text_score=0.2, box_thresh=0.3, unclip_ratio=2.0)
 
+    # Run OCR on each page
     pages = [ocr_page(engine, img) for img in pages_images]
 
     # Save the OCR result to the cache file
