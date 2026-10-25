@@ -173,7 +173,7 @@ def get_companies_csv_data(session: requests.Session, url: str, params, error_me
 def get_companies():
     with CONNECTION_POOL.get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT code FROM sic_codes WHERE code")
+        cursor.execute("SELECT DISTINCT code FROM sic_codes")
         sic_codes: list[int] = [x[0] for x in cursor.fetchall()]
         with requests.session() as s:
             for code in sic_codes:
