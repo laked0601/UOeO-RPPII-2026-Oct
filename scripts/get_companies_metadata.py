@@ -249,7 +249,7 @@ def get_companies():
                                         },
                                         error_message_id=f"sic code {padded_code} for {start_year}-{str(month).zfill(2)}"
                                     )
-                                    if res is None:
+                                    if res[0] is None:
                                         print("continuing...")
                                         continue
                                     headers, rows, _, _ = res
