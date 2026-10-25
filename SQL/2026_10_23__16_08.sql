@@ -24,7 +24,7 @@ CREATE TABLE sic_codes_staging (
 
 DELIMITER $$
 
-CREATE PROCEDURE ProcessStaging()
+CREATE PROCEDURE ProcessCompanyStaging()
 BEGIN
     START TRANSACTION;
 
