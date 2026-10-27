@@ -2,10 +2,9 @@ from mysql.connector.abstracts import MySQLCursorAbstract
 from mysql.connector.connection import MySQLConnection
 import requests
 import re
-import time
 import datetime
 import os
-from helpers import CONNECTION_POOL
+from helpers import CONNECTION_POOL, retried_request
 from tempfile import NamedTemporaryFile
 
 
@@ -48,37 +47,6 @@ def extract_from_csv(filepath: str):
                 wf.write(rf.read())
 
     return headers, rows
-
-
-def retried_request(session: requests.Session, url: str, params, error_message_id: str):
-    no_results_timeout = 7
-    for i in (10, 60):
-        try:
-            r = session.get(url, params=params, timeout=no_results_timeout)
-            if r.status_code == 504:
-                return None, 'no results'
-            r.raise_for_status()
-            break
-        except requests.exceptions.Timeout:
-            # Timeout means the server didn't respond in time,
-            # which we interpret as the server having no results.
-            print(f"Request timed out for {error_message_id}. Treating as no results.")
-            return None, 'no results'
-        except Exception as e:
-            print(f"Received {type(e)} {e} for {error_message_id}. Sleeping {i} seconds and retrying...")
-            time.sleep(i)
-    else:
-        try:
-            r = session.get(url, params=params, timeout=no_results_timeout)
-            r.raise_for_status()
-        except requests.exceptions.Timeout:
-            print(f"Final attempt timed out for {error_message_id}. Treating as no results.")
-            return None, 'no results'
-        except Exception as e:
-            print(f"Received {type(e)} {e} for {error_message_id}. Breaking requests...")
-            return None, 'failed'
-
-    return r, 'success'
 
 
 def add_rows_to_database(connection: MySQLConnection, cursor: MySQLCursorAbstract, source_headers: list[str], rows: list[list[str]]):
@@ -132,12 +100,29 @@ def add_rows_to_database(connection: MySQLConnection, cursor: MySQLCursorAbstrac
                 dt
             )
         )
-
-    cursor.executemany(
+    insert_sql = (
         "INSERT INTO companies_staging (company_number, company_name, registered_address, type, status, incorporated_on) " +
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        company_rows
+        "VALUES (%s, %s, %s, %s, %s, %s)"
     )
+    try:
+        cursor.executemany(insert_sql, company_rows)
+    except Exception as e:
+        print(f"Received {type(e)} {str(e)} when trying to insert many rows. Running each line individually...")
+        i = 0
+        counter = 0
+        for r in company_rows:
+            try:
+                cursor.execute(insert_sql, r)
+            except Exception as e:
+                print(
+                    f"Received {type(e)} {str(e)} when trying to insert {str(r)}."
+                )
+            i += 1
+            if i >= 300:
+                counter += 300
+                print(f"{counter} rows complete...")
+                i = 0
+
     cursor.executemany(
         "INSERT INTO sic_codes_staging (company_number, sic_code) VALUES (%s, %s)",
         nature_of_business_rows
@@ -170,13 +155,14 @@ def get_companies_csv_data(session: requests.Session, url: str, params, error_me
     return headers, rows, None, None
 
 
-def get_companies():
+def get_companies(base_start_year: int=1800):
     with CONNECTION_POOL.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT code FROM sic_codes")
         sic_codes: list[int] = [x[0] for x in cursor.fetchall()]
         with requests.session() as s:
             for code in sic_codes:
+                start_year = base_start_year
                 padded_code = str(code).zfill(5)
                 res = get_companies_csv_data(
                     session=s,
@@ -195,7 +181,6 @@ def get_companies():
                 if rows_len > 4999:
                     print("Splitting requests by incorporation year")
                     this_year = datetime.datetime.today().year
-                    start_year = 1800
                     end_year = start_year + (this_year - start_year) // 2
                     while start_year <= this_year:
                         res = get_companies_csv_data(
@@ -234,7 +219,7 @@ def get_companies():
                                         start_date = datetime.date(start_year, month, 1)
                                         if start_date >= datetime.date.today():
                                             break
-
+                                    month_zfill = str(month).zfill(2)
                                     res = get_companies_csv_data(
                                         session=s,
                                         url=CSV_URL,
@@ -247,13 +232,41 @@ def get_companies():
                                             "incorporationToYear": end_year,
                                             "sicCodes": padded_code
                                         },
-                                        error_message_id=f"sic code {padded_code} for {start_year}-{str(month).zfill(2)}"
+                                        error_message_id=f"sic code {padded_code} for {start_year}-{month_zfill}"
                                     )
-                                    if res is None:
+                                    if res[0] is None:
                                         print("continuing...")
                                         continue
                                     headers, rows, _, _ = res
-                                    add_rows_to_database(conn, cursor, headers, rows)
+                                    if len(rows) > 4999:
+                                        for sub_start_day, sub_end_day in (
+                                            (1, 7), (8, 14), (15, 21), (22, end_day)
+                                        ):
+                                            res = get_companies_csv_data(
+                                                session=s,
+                                                url=CSV_URL,
+                                                params={
+                                                    "incorporationFromDay": sub_start_day,
+                                                    "incorporationFromMonth": month,
+                                                    "incorporationFromYear": start_year,
+                                                    "incorporationToDay": sub_end_day,
+                                                    "incorporationToMonth": month,
+                                                    "incorporationToYear": end_year,
+                                                    "sicCodes": padded_code
+                                                },
+                                                error_message_id=(
+                                                    f"sic code {padded_code} for " +
+                                                    f"{start_year}-{month_zfill}-{str(sub_start_day).zfill(2)} to " +
+                                                    f"{start_year}-{month_zfill}-{str(sub_end_day).zfill(2)}"
+                                                )
+                                            )
+                                            if res[0] is None or res[3] == 'no results':
+                                                print("continuing...")
+                                                continue
+                                            headers, rows, _, _ = res
+                                            add_rows_to_database(conn, cursor, headers, rows)
+                                    else:
+                                        add_rows_to_database(conn, cursor, headers, rows)
                                 start_year += 1
                                 end_year += 1
                             else:
