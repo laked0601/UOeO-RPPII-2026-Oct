@@ -1,6 +1,8 @@
 import os
 import json
 import re
+import requests
+import time
 from mysql.connector.pooling import MySQLConnectionPool
 from mysql.connector.connection import MySQLConnection
 
@@ -40,3 +42,34 @@ CONNECTION_POOL = ConnectionPool()
 #     cursor.execute("SELECT company_number FROM companies LIMIT 1")
 #     print(cursor.fetchall())
 #     conn.close()
+
+
+def retried_request(session: requests.Session, url: str, params, error_message_id: str):
+    no_results_timeout = 7
+    for i in (10, 120):
+        try:
+            r = session.get(url, params=params, timeout=no_results_timeout)
+            if r.status_code == 504:
+                return None, 'no results'
+            r.raise_for_status()
+            break
+        except requests.exceptions.Timeout:
+            # Timeout means the server didn't respond in time,
+            # which we interpret as the server having no results.
+            print(f"Request timed out for {error_message_id}. Treating as no results.")
+            return None, 'no results'
+        except Exception as e:
+            print(f"Received {type(e)} {e} for {error_message_id}. Sleeping {i} seconds and retrying...")
+            time.sleep(i)
+    else:
+        try:
+            r = session.get(url, params=params, timeout=no_results_timeout)
+            r.raise_for_status()
+        except requests.exceptions.Timeout:
+            print(f"Final attempt timed out for {error_message_id}. Treating as no results.")
+            return None, 'no results'
+        except Exception as e:
+            print(f"Received {type(e)} {e} for {error_message_id}. Breaking requests...")
+            return None, 'failed'
+
+    return r, 'success'
