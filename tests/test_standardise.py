@@ -213,7 +213,8 @@ def test_a_heading_found_twice_with_different_values_is_reported_and_the_first_k
 
 def test_main_writes_the_standard_file_without_running_ocr(tmp_path):
     name = "crown_overseas_abbreviated_2015"
-    shutil.copy(FIXTURES / f"{name}.ocr.json", tmp_path / f"{name}.ocr.json")  # the OCR cache
+    (tmp_path / "cache").mkdir()
+    shutil.copy(FIXTURES / f"{name}.ocr.json", tmp_path / "cache" / f"{name}.ocr.json")  # the OCR cache
     pdf = tmp_path / f"{name}.pdf"
     pdf.write_bytes(b"")  # never opened: the cache is used
 

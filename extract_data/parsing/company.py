@@ -12,8 +12,8 @@ from collections import Counter
 from extract_data.parsing.figures import find_dates
 
 COMPANY_NUMBER = re.compile(
-    r"(?:company\s+(?:registration\s+)?|registered\s+|registration\s+|llp\s+registered\s+)(?:number|no\.?)\s*[:\-]?\s*([A-Z]{0,2}\d{6,8})\b",
-    re.I)
+    r"(?:company\s+(?:registration\s+)?|registered\s+|registration\s+|llp\s+registered\s+)"
+    r"(?:number|no\.?)\s*[:\-]?\s*([A-Z]{0,2}\d{6,8})\b", re.I)
 FILENAME = re.compile(r"^(?:(?P<number>[A-Z]{0,2}\d{6,8})_)?(?P<type>[A-Za-z0-9]{2,4})_(?P<date>\d{4}-\d{2}-\d{2})")
 SIGNER = re.compile(r"^(?:directors?|designated members?)(?:\s+(?:date:?\s*)?\d.*)?$", re.I)
 
@@ -21,6 +21,11 @@ SIGNER = re.compile(r"^(?:directors?|designated members?)(?:\s+(?:date:?\s*)?\d.
 NUMBER_PREFIXES = {"AC", "CE", "CS", "FC", "FE", "GE", "GS", "IC", "IP", "LP", "NA", "NF", "NI", "NL", "NO", "NP",
                    "NR", "NZ", "OC", "OE", "PC", "R0", "RC", "SA", "SC", "SE", "SF", "SG", "SI", "SL", "SO", "SP",
                    "SR", "SZ", "ZC"}
+
+
+def look_alike(number):
+    """A company number with the characters the OCR confuses made the same (I, l and 1; O and 0)."""
+    return re.sub(r"[Il1]", "I", number.upper()).replace("O", "0")
 
 
 def clean_company_number(text, from_filename=None):
@@ -31,10 +36,8 @@ def clean_company_number(text, from_filename=None):
     holds a number that differs only by such look-alike characters, the file name's is used.
     """
     text = re.sub(r"\s+", "", text)
-    if from_filename:
-        alike = lambda s: re.sub(r"[Il1]", "I", s.upper()).replace("O", "0")
-        if alike(text) == alike(from_filename):
-            return from_filename.upper()
+    if from_filename and look_alike(text) == look_alike(from_filename):
+        return from_filename.upper()
     if len(text) == 8 and text[0].isalpha():
         second = {"l": "I", "1": "I"}.get(text[1], text[1]).upper()
         prefix = text[0].upper() + second
@@ -102,6 +105,10 @@ def filing_details(filing):
     return {"company_number": filing.group("number"), "type": filing.group("type"), "date": filing.group("date")}
 
 
+def iso_date(date):
+    return date.isoformat() if date else None
+
+
 def extract_company(pages_lines, tables, source_file, warnings):
     """Company number, period end and approval date; also the filing details from the file name."""
     head = " ".join(" ".join(lines) for lines in pages_lines[:3])
@@ -117,7 +124,6 @@ def extract_company(pages_lines, tables, source_file, warnings):
         if not value:
             warnings.append(f"{label} not found")
 
-    iso = lambda d: d.isoformat() if d else None
-    company = {"registration_number": number, "period_end": iso(period_end),
-               "approval_date": iso(approval)}
+    company = {"registration_number": number, "period_end": iso_date(period_end),
+               "approval_date": iso_date(approval)}
     return company, filing_details(filing), period_end

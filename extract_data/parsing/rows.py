@@ -1,7 +1,7 @@
 """
 Turning OCR rows into labelled rows of figures.
 
-Each OCR row (a text line or a list of positioned fragments) is split into a
+Each OCR row (a list of positioned fragments) is split into a
 label and the figures at its right, with repairs for the commonest OCR damage
 (figures glued together, stray marks, labels wrapped over two lines).
 """
@@ -15,19 +15,19 @@ from extract_data.parsing.figures import DASH, UNREADABLE, to_number
 CONTINUES = {"and", "or", "of", "less", "than", "within", "due", "in", "to", "the", "a", "an", "for", "from",
              "after", "before", "on", "at", "by", "with", "current", "net", "non", "gross"}
 TAIL_START = {"before", "after", "for", "the", "of", "per", "to"}
+# A figure with thousands separators, "124,556" or "(213, 135)" (the OCR may add a space).
+THOUSANDS_FIGURE = r"\(?-?\d{1,3}(?:[.,]\s?\d{3})+\)?"
 # Figures at the end of a text fragment: "At 31 March 2025 124,556 7,667." or
 # "Cost of sales (213, 135)".  The OCR sometimes merges them into the label.
-TRAILING_NUMBERS = re.compile(r"^(.*?\S)((?:\s+\(?-?\d{1,3}(?:[.,]\s?\d{3})+\)?[.,]?)+)$")
+TRAILING_NUMBERS = re.compile(rf"^(.*?\S)((?:\s+{THOUSANDS_FIGURE}[.,]?)+)$")
 # Two or more figures in one fragment, and a single figure within such a run.
 NUMBER_IN_RUN = r"\(?-?\d{1,3}(?:[.,;:]\s?\d{3})+\)?|\(?-?\d+\)?"
 NUMBER_RUN = re.compile(rf"^(?:{NUMBER_IN_RUN})(?:\s+(?:{NUMBER_IN_RUN}))+$")  # figures separated by spaces
 
 
 def fragments_of(item):
-    """The [text, span] pieces of one OCR row: a text line, or a list of (x_left, text, x_right)."""
-    if isinstance(item, str):
-        return [[f.strip(), None] for f in item.split("  ") if f.strip()]
-    return [[f[1].strip(), (f[0], f[2]) if len(f) > 2 else None] for f in item if f[1].strip()]
+    """The [text, span] pieces of one OCR row, a list of (x_left, text, x_right)."""
+    return [[text.strip(), (left, right)] for left, text, right in item if text.strip()]
 
 
 def clean_pieces(pieces):
@@ -46,8 +46,6 @@ def clean_pieces(pieces):
 
 def sub_span(span, start, end, length):
     """The horizontal extent of characters start..end of a text of `length` characters printed across `span`."""
-    if not span:
-        return None
     width = span[1] - span[0]
     return span[0] + width * start / length, span[0] + width * end / length
 
@@ -94,7 +92,7 @@ def pop_figures_merged_into_label(pieces, values, tokens, spans):
         return
     text, span = pieces.pop()
     pieces.append([m.group(1), sub_span(span, 0, len(m.group(1)), len(text))])
-    found = re.finditer(r"\(?-?\d{1,3}(?:[.,]\s?\d{3})+\)?", m.group(2))
+    found = re.finditer(THOUSANDS_FIGURE, m.group(2))
     for number in reversed(list(found)):
         start, end = m.start(2) + number.start(), m.start(2) + number.end()
         values.insert(0, to_number(number.group(0)))
@@ -140,28 +138,19 @@ def continues_label_above(previous, row):
         ":")  # "Represented by:" is a heading
 
 
-def join_labels(first, second):
-    """Add the text pieces of `first` in front of `second` (both rows), and rebuild the label."""
-    second["frags"] = first["frags"] + second["frags"]
-    second["fx"] = first["fx"] + second["fx"]
-    second["label"] = first["label"] + " " + second["label"]
-
-
-def extend_label(first, second):
-    """Add the text of `second` after the label of `first` (both rows); `first` is updated in place."""
-    first["frags"] = first["frags"] + second["frags"]
-    first["fx"] = first["fx"] + second["fx"]
-    first["label"] = first["label"] + " " + second["label"]
+def joined_text(first, second):
+    """The text pieces, their positions and the label of `first` followed by those of `second`."""
+    return {"frags": first["frags"] + second["frags"], "fx": first["fx"] + second["fx"],
+            "label": first["label"] + " " + second["label"]}
 
 
 def read_rows(source):
     """
     Split OCR rows into dicts with the label and the figures at the right.
 
-    `source` is one page: a list of rows, each either a text line (fragments
-    separated by two spaces) or a list of OCR fragments (x_left, text, x_right).
+    `source` is one page: a list of rows, each a list of OCR fragments (x_left, text, x_right).
     Each returned row has:
-      frags / fx    the text pieces, and their horizontal extents (None if unknown)
+      frags / fx    the text pieces, and their horizontal extents
       label         the text in front of the figures
       values        the figures, as numbers
       tokens / vx   the figures as printed, and their horizontal extents
@@ -177,15 +166,15 @@ def read_rows(source):
 
         previous = rows[-1] if rows else None
         if finishes_label_above(previous, row):
-            extend_label(previous, row)  # the short line finishes the label above it
+            previous.update(joined_text(previous, row))  # the short line finishes the label above it
             continue
         if continues_label_above(previous, row):
             rows.pop()
-            join_labels(previous, row)
+            row.update(joined_text(previous, row))  # keeps this row's figures
         rows.append(row)
     return rows
 
 
 def to_lines(page):
-    """Plain text lines of one page (accepts text lines or OCR fragment rows)."""
-    return [row if isinstance(row, str) else "  ".join(f[1] for f in row) for row in page]
+    """The rows of a page as plain text lines: the fragments of each row joined by two spaces."""
+    return ["  ".join(fragment[1] for fragment in row) for row in page]

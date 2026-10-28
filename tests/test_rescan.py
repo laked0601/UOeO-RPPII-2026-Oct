@@ -7,11 +7,15 @@ The page reader is replaced by a fake that returns prepared rows, so no OCR runs
 import json
 
 from extract_data.rescan import load_tried, rescan_flagged_pages, tried_path
+from rowtext import text_row
 
-BAD = ["Acme Limited", "BALANCE SHEET", "2025  2024", "Fixed assets  100  90", "Current assets  50  40",
-       "Total assets  151  130"]  # 151 is a misread 150
-GOOD = [line.replace("151", "150") for line in BAD]
-TITLE = ["Acme Limited", "Annual report"]
+BAD = [text_row(line) for line in [
+    "Acme Limited", "BALANCE SHEET", "2025  2024", "Fixed assets  100  90", "Current assets  50  40",
+    "Total assets  151  130"]]  # 151 is a misread 150
+GOOD = [text_row(line.replace("151", "150")) for line in [
+    "Acme Limited", "BALANCE SHEET", "2025  2024", "Fixed assets  100  90", "Current assets  50  40",
+    "Total assets  151  130"]]
+TITLE = [text_row("Acme Limited"), text_row("Annual report")]
 
 
 def pages(page_two):
@@ -94,12 +98,7 @@ def test_malformed_record_is_treated_as_empty(tmp_path):
     assert load_tried(path) == set()
 
 
-def test_working_files_live_in_the_cache_folder_and_old_ones_are_moved(tmp_path):
+def test_working_files_live_in_the_cache_folder(tmp_path):
     from extract_data.reading.ocr import cache_path
-    (tmp_path / "file.ocr.json").write_text("[]", encoding="utf-8")  # left by an older version
-    (tmp_path / "file.rescan.json").write_text('{"pages_tried": [4]}', encoding="utf-8")
     assert cache_path("file.pdf", tmp_path) == tmp_path / "cache" / "file.ocr.json"
-    assert (tmp_path / "cache" / "file.ocr.json").read_text(encoding="utf-8") == "[]"
-    assert not (tmp_path / "file.ocr.json").exists()
-    assert load_tried(tried_path("file.pdf", tmp_path)) == {4}
-    assert not (tmp_path / "file.rescan.json").exists()
+    assert tried_path("file.pdf", tmp_path) == tmp_path / "cache" / "file.rescan.json"

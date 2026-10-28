@@ -13,6 +13,7 @@ from extract_data.parsing.document import extract_document
 from extract_data.parsing.labels import standard_label
 from extract_data.parsing.rows import read_rows
 from extract_data.results.standardise import standardise
+from rowtext import text_row
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -60,19 +61,21 @@ def test_semicolon_and_stray_dot_inside_figures():
 
 
 def test_uppercase_label_wrapped_after_a_joining_word_is_joined():
-    rows = read_rows(["TOTAL ASSETS LESS CURRENT", "LIABILITIES  1,835,176  2,321,369"])
+    rows = read_rows([text_row("TOTAL ASSETS LESS CURRENT"), text_row("LIABILITIES  1,835,176  2,321,369")])
     assert [r["label"] for r in rows] == ["TOTAL ASSETS LESS CURRENT LIABILITIES"]
     assert rows[0]["values"] == [1835176, 2321369]
 
 
 def test_short_line_finishing_the_label_above_is_joined():
-    rows = read_rows(["SURPLUS / (DEFICIT) ON", "ORDINARY ACTIVITIES  3  64,364  (356,072)", "BEFORE TAXATION"])
+    rows = read_rows([text_row("SURPLUS / (DEFICIT) ON"), text_row("ORDINARY ACTIVITIES  3  64,364  (356,072)"),
+                      text_row("BEFORE TAXATION")])
     assert [r["label"] for r in rows] == ["SURPLUS / (DEFICIT) ON ORDINARY ACTIVITIES BEFORE TAXATION"]
 
 
 def test_headings_ending_in_a_colon_or_a_noun_are_not_joined_to_the_next_row():
-    assert len(read_rows(["Represented by:", "Revenue Reserves  1,776,018  1,746,349"])) == 2
-    assert len(read_rows(["Carrying amount", "At 31 August 2025  100  200"])) == 2  # "amount" does not continue a label
+    assert len(read_rows([text_row("Represented by:"), text_row("Revenue Reserves  1,776,018  1,746,349")])) == 2
+    # "amount" is not a word that continues a label
+    assert len(read_rows([text_row("Carrying amount"), text_row("At 31 August 2025  100  200")])) == 2
 
 
 def test_standard_labels_ignore_spaces_around_slashes():

@@ -21,6 +21,7 @@ from extract_data.parsing.figures import is_year_row
 from extract_data.parsing.labels import standard_label
 from extract_data.parsing.rows import TRAILING_NUMBERS, read_rows
 from extract_data.parsing.tables import STATEMENT_HEADING
+from rowtext import text_row
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -60,8 +61,8 @@ def test_stray_dots_are_dropped_but_dashes_kept():
 
 
 def test_year_row_needs_bare_years_not_figures():
-    assert is_year_row(read_rows(["Notes  2026  2025"])[0])
-    assert not is_year_row(read_rows(["Share capital  2,000  2,000"])[0])
+    assert is_year_row(read_rows([text_row("Notes  2026  2025")])[0])
+    assert not is_year_row(read_rows([text_row("Share capital  2,000  2,000")])[0])
 
 
 def test_statement_headings_with_prefixes():
@@ -234,14 +235,8 @@ def test_llp_warnings_are_the_filings_own_inconsistencies_and_a_misread_dash():
     assert any(w.startswith("Debtors (2025-03-31_llp)") and "-1" in w for w in warnings)
 
 
-# ------------------------- positions must not change the earlier layouts
+# ------------------------------------------- the earlier layouts still read cleanly
 
 @pytest.mark.parametrize("name", ["11508952_aa_2025-09-23", "companies_house_document"])
-def test_statements_are_identical_with_and_without_positions(name):
-    with_positions = extract(name)
-    lines = json.loads((FIXTURES / f"{name}.lines.json").read_text(encoding="utf-8"))
-    without = extract_document(lines, f"{name}.pdf")
-    as_rows = lambda result: [(s["name"], r["label"], tuple(r["values"].values()), r["kind"])
-                              for s in result["statements"] for r in s["rows"]]
-    assert as_rows(with_positions) == as_rows(without)
-    assert with_positions["warnings"] == [] == without["warnings"]
+def test_the_small_company_and_shell_filings_have_no_warnings(name):
+    assert extract(name)["warnings"] == []

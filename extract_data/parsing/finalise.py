@@ -103,7 +103,7 @@ def make_columns(padded, period_end):
     return columns
 
 
-def split_note_ref(label, figures, spans, raw_columns, positioned, count):
+def split_note_ref(label, figures, spans, raw_columns):
     """
     Separate a note reference from a row: returns (note, label, figures, spans).
 
@@ -113,22 +113,18 @@ def split_note_ref(label, figures, spans, raw_columns, positioned, count):
     match = NOTE_REF.search(label)
     if match:
         return match.group(1), NOTE_REF.sub("", label).strip(), figures, spans
-    if figures and label and raw_columns and isinstance(figures[0], int) and 0 < figures[0] < 100:
-        if positioned and all(spans):
-            is_note = spans[0][1] < raw_columns[0]["x"][0]
-        else:
-            is_note = len(figures) == count + 1
-        if is_note:
-            return str(figures[0]), label, figures[1:], spans[1:]
+    if (figures and label and raw_columns and isinstance(figures[0], int) and 0 < figures[0] < 100
+            and spans[0][1] < raw_columns[0]["x"][0]):
+        return str(figures[0]), label, figures[1:], spans[1:]
     return None, label, figures, spans
 
 
-def align_figures(figures, spans, label, padded, positioned, flags):
+def align_figures(figures, spans, label, padded, has_columns, flags):
     """
     Put a row's figures under the table's columns: returns (one value per column, blank column indexes).
 
-    Too many figures keep the last ones; too few are placed by position when that is clear,
-    else right-aligned.  Each of these is noted in `flags` (changed in place).
+    Too many figures keep the last ones; too few are placed by position when the table has
+    columns and that is clear, else right-aligned.  Each of these is noted in `flags` (changed in place).
     """
     count = len(padded)
     if len(figures) == count:
@@ -140,7 +136,7 @@ def align_figures(figures, spans, label, padded, positioned, flags):
         if label and "no_figures_read" not in flags:
             flags.append("no_figures_read")
         return [None] * count, []
-    slots = place_by_position(spans, padded) if positioned and all(spans) else None
+    slots = place_by_position(spans, padded) if has_columns else None
     if slots is None:
         flags.append("partial_alignment")
         return [None] * (count - len(figures)) + figures, []
@@ -151,12 +147,11 @@ def align_figures(figures, spans, label, padded, positioned, flags):
     return aligned, [i for i in range(count) if i not in slots]  # cells with nothing printed
 
 
-def finalise_row(row, table, columns, padded, raw_columns, positioned):
+def finalise_row(row, table, columns, padded, raw_columns):
     """One scanned row in its final form (values keyed by column, note reference split off)."""
-    count = len(padded)
     figures, spans, flags = list(row["raw"]), list(row["vx"]), list(row.get("flags", []))
-    note, label, figures, spans = split_note_ref(row["label"], figures, spans, raw_columns, positioned, count)
-    aligned, blank = align_figures(figures, spans, label, padded, positioned, flags)
+    note, label, figures, spans = split_note_ref(row["label"], figures, spans, raw_columns)
+    aligned, blank = align_figures(figures, spans, label, padded, bool(raw_columns), flags)
 
     entry = {"section": row["section"], "label": label or "Subtotal", "note": note,
              "kind": "line" if label else "subtotal",
@@ -187,8 +182,7 @@ def finalise_table(table, period_end):
         return None
     padded = [raw_columns[i] if i < len(raw_columns) else parse_column("") for i in range(count)]
     columns = make_columns(padded, period_end)
-    positioned = bool(raw_columns) and all(c["x"] for c in raw_columns)
-    rows = [finalise_row(row, table, columns, padded, raw_columns, positioned) for row in table["rows"]]
+    rows = [finalise_row(row, table, columns, padded, raw_columns) for row in table["rows"]]
 
     currency, multiplier = detect_units(" ".join(c["text"] for c in raw_columns))
     return {"kind": table["kind"], "name": table["name"], "note_number": table["note_number"],

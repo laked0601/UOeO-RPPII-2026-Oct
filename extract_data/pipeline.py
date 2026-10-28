@@ -6,9 +6,9 @@ results into the output folder (see main.py for the files).  The log functions a
 build the entry added to the results log for each PDF.
 """
 
-import json
 from datetime import datetime
 
+from extract_data.jsonio import write_json
 from extract_data.reading.ocr import ocr_pdf, reocr_pages, save_cache, write_text_dump
 from extract_data.rescan import load_tried, rescan_flagged_pages, save_tried, tried_path
 from extract_data.results.flatten import to_facts, write_facts
@@ -30,19 +30,17 @@ def read_pdf(pdf_path, out_dir, dpi, use_cache, use_text_layer, rescan_dpi):
     tried_file = tried_path(pdf_path, out_dir)
     tried = load_tried(tried_file, rescan_dpi) if use_cache else set()
     can_rescan = rescan_dpi > dpi
-    pages, parsed, rescanned, improved = rescan_flagged_pages(
-        pages, pdf_path.name, lambda numbers: reocr_pages(pdf_path, numbers, rescan_dpi) if can_rescan else {},
-        tried)
+
+    def rescan(numbers):
+        return reocr_pages(pdf_path, numbers, rescan_dpi) if can_rescan else {}
+
+    pages, parsed, rescanned, improved = rescan_flagged_pages(pages, pdf_path.name, rescan, tried)
     if rescanned and can_rescan:
         print(f"  Re-read pages {rescanned} at {rescan_dpi} dpi; improved: {improved or 'none'}")
         save_tried(tried_file, rescan_dpi, tried | set(rescanned))
         if improved:
             save_cache(pdf_path, out_dir, pages)  # later runs start from the better reading
     return pages, parsed
-
-
-def write_json(path, data):
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def process_pdf(pdf_path, out_dir, dpi, use_cache, use_text_layer=True, rescan_dpi=0, write_text=False):

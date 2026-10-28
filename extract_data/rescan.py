@@ -11,15 +11,15 @@ tried once and remembered, so later runs do not repeat the work.
 
 import json
 from extract_data.parsing.document import extract_document
-from extract_data.reading.ocr import cache_file
+from extract_data.reading.ocr import REREAD_DPI, working_file
 from pathlib import Path
 
-DEFAULT_RESCAN_DPI = 450  # 1.5 times the normal 300: sharper small digits without huge images
+DEFAULT_RESCAN_DPI = REREAD_DPI  # 1.5 times the normal 300: sharper small digits without huge images
 
 
 def tried_path(pdf_path, out_dir):
     """The small file that remembers which pages were already rescanned."""
-    return cache_file(out_dir, Path(pdf_path).stem, ".rescan.json")
+    return working_file(out_dir, Path(pdf_path).stem, ".rescan.json")
 
 
 def read_record(path):

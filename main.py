@@ -23,9 +23,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from extract_data.cli import add_ocr_options
 from extract_data.pipeline import DEFAULT_LOG_NAME, append_log, failure_entry, process_pdf, result_entry
 from extract_data.reading import gpu
-from extract_data.reading.ocr import DEFAULT_DPI
 from extract_data.rescan import DEFAULT_RESCAN_DPI
 
 DEFAULT_OUT_DIR = Path("output")  # where the results go
@@ -39,13 +39,12 @@ def build_parser():
     ap = argparse.ArgumentParser(description="Extract Companies House accounts PDFs.")
     ap.add_argument("path", nargs="?", default=DEFAULT_PDF_PATH, help="a PDF file, or a folder of PDFs")
     ap.add_argument("--out", default=DEFAULT_OUT_DIR, help="output folder (default: output)")
-    ap.add_argument("--dpi", type=int, default=DEFAULT_DPI, help="render resolution for OCR")
+    add_ocr_options(ap)
     ap.add_argument("--no-cache", action="store_true", help="ignore current stored OCR and re-run it")
     ap.add_argument("--rescan-dpi", type=int, default=DEFAULT_RESCAN_DPI,
                     help="re-read pages whose totals do not add up at this resolution; 0 turns it off "
                          "(default: %(default)s)")
     ap.add_argument("--text", action="store_true", help="also write <name>.txt, the raw text of each page")
-    ap.add_argument("--cpu", action="store_true", help="do the OCR on the CPU even if a GPU can be used")
     ap.add_argument("--force-ocr", action="store_true",
                     help="OCR every page even if the PDF has a text layer")
     ap.add_argument("--log", help=f"text file the results are logged to (default: <out>/{DEFAULT_LOG_NAME})")
@@ -81,9 +80,7 @@ def main(argv=None):
     # Process each PDF, report where the parsed JSON was saved, and log what was found.
     log_path = Path(args.log) if args.log else out_dir / DEFAULT_LOG_NAME
     failed = []
-    previous_gpu = gpu.enabled  # put back afterwards: it is module-wide state
-    gpu.enabled = not args.cpu
-    try:
+    with gpu.setting(not args.cpu):
         for pdf in pdfs:
             try:
                 json_path, parsed, facts = process_pdf(
@@ -96,8 +93,6 @@ def main(argv=None):
                 continue
             report(pdf, json_path, parsed, facts)
             append_log(log_path, result_entry(pdf.name, parsed, facts))
-    finally:
-        gpu.enabled = previous_gpu
 
     if failed:
         sys.exit(f"\n{len(failed)} of {len(pdfs)} PDFs failed: {', '.join(failed)}")

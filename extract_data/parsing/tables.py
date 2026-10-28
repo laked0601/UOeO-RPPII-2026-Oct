@@ -260,10 +260,10 @@ class TableScanner:
         # figures; page numbers, "Registered number: 05421996" and stray numbers are not tables.
         if len(row["values"]) < 2 or not row["label"] or JUNK_LABEL.match(row["label"]):
             return None
-        prior = self.tables[-1] if self.tables and self.tables[-1]["page"] == self.page_no - 1 \
-                                   and self.tables[-1]["rows"] else None
-        if prior:  # continues the previous page's table
-            self.current, self.section = prior, prior["rows"][-1]["section"]
+        previous = self.tables[-1] if self.tables else None
+        if previous and previous["page"] == self.page_no - 1 and previous["rows"]:
+            # continues the previous page's table
+            self.current, self.section = previous, previous["rows"][-1]["section"]
         else:
             table = self.start_table("note", self.last_heading or "Untitled")
             table["header_rows"], self.pending = self.pending, []

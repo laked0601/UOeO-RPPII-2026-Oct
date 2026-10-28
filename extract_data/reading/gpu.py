@@ -7,13 +7,15 @@ requirements.txt) nothing changes and the OCR runs on the CPU.
 """
 
 from contextlib import contextmanager
+from functools import lru_cache
 
 from rapidocr_onnxruntime import rapid_ocr_api  # its config reader is wrapped to switch the models to the GPU
 
-# Set by main.py's --cpu option; the GPU is used whenever it is enabled and available.
+# Turned off by the --cpu option of main.py and upload_filings.py.
 enabled = True
 
 
+@lru_cache(maxsize=None)  # the answer cannot change while the program runs
 def available():
     """
     True if onnxruntime can run on an NVIDIA GPU here.
@@ -36,6 +38,17 @@ def available():
 def in_use():
     """True if the OCR will run on the GPU: it is enabled (no --cpu) and available."""
     return enabled and available()
+
+
+@contextmanager
+def setting(use_gpu):
+    """Allow (or, with False, forbid) the GPU inside a `with` block; the old setting comes back afterwards."""
+    global enabled
+    previous, enabled = enabled, use_gpu
+    try:
+        yield
+    finally:
+        enabled = previous
 
 
 @contextmanager

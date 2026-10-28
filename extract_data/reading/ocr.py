@@ -13,14 +13,19 @@ Output of this module:
 A list of pages
 Each page is a list of rows
 Each row is a list of (x_left, text, x_right) sorted left to right
-(older cache files hold (x_left, text) only; both shapes are accepted downstream)
 """
 
 import json
-import pymupdf  # PyMuPDF: opens the PDF and renders pages to pixel images
-from extract_data.reading import gpu
+import re
 from pathlib import Path
+
+import numpy as np
+import pymupdf  # PyMuPDF: opens the PDF and renders pages to pixel images
 from rapidocr_onnxruntime import RapidOCR
+
+from extract_data.jsonio import write_json
+from extract_data.parsing.rows import to_lines
+from extract_data.reading import gpu
 
 # A page needs at least this many words in its text layer to be trusted.  Scans made by
 # tiff2pdf have none; a page number or stamp on an otherwise scanned page is only a few.
@@ -29,14 +34,31 @@ MIN_TEXT_WORDS = 30
 # ("Cost of sales"); the wide gaps between table columns start a new fragment.
 WORD_GAP_RATIO = 0.6
 DEFAULT_DPI = 300  # a good balance for OCR; lower makes small table digits unreliable
+# A scanned page is read again at REREAD_DPI if the OCR is unsure of some of its text: a piece of text of
+# at least DOUBTFUL_MIN_CHARS characters whose confidence is below DOUBTFUL_SCORE (garbled lines score
+# about 0.3, ordinary text 0.8 or more).  Short pieces such as page numbers are always a little unsure.
+REREAD_DPI = 450
+DOUBTFUL_SCORE = 0.5
+DOUBTFUL_MIN_CHARS = 3
+# RapidOCR can turn each line of text the right way up before reading it (the "angle classifier").  On upright
+# pages, which nearly all scans are, it sometimes turns a line upside down by mistake and costs time:
+# on 120 scanned pages it left 36 doubtful lines against 2 without it, and took 14% longer.  So it is
+# only used for a page that reads badly without it, which is what an upside-down scan does: at least
+# UNREADABLE_MIN doubtful pieces of text, and more than half of all its pieces.
+UNREADABLE_MIN = 5
+# The OCR often reads the pound sign as "f": "f127,964", "f 461,856", "(2014 - f 488,644 )".
+POUND_SIGN = re.compile(r"(?<![A-Za-z0-9])f(?=\s?\d)")
 
 
 def render_page(page, dpi=DEFAULT_DPI):
     """
-    Render one PDF page to PNG bytes for OCR.
+    Render one PDF page to an image array for OCR.
+    The raw pixels are handed over as they are: encoding them as a PNG and decoding it again gave the
+    OCR exactly the same image, at a fifth of the total time.
     """
     # get_pixmap handles the points-to-pixels scaling
-    return page.get_pixmap(dpi=dpi).tobytes("png")
+    pixmap = page.get_pixmap(dpi=dpi)
+    return np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(pixmap.height, pixmap.width, pixmap.n)
 
 
 def text_layer_rows(page):
@@ -116,13 +138,29 @@ def group_into_rows(detections, y_tolerance_ratio=0.6):
     return [sorted(row["items"]) for row in rows]
 
 
-def ocr_page(engine, page_image):
+def fix_pound_signs(text):
+    """Put back the pound sign the OCR read as an "f" in front of a figure."""
+    return POUND_SIGN.sub("£", text)
+
+
+def ocr_page_scored(engine, page_image, classify=False):
     """
-    Run RapidOCR on a single page image and return its text rows
-    Each fragment is a tuple of (box, text, confidence).
+    Run RapidOCR on a single page image, with the angle classifier on if `classify`; returns (rows, doubtful).
+    Each detected fragment is a tuple of (box, text, confidence).  `doubtful` counts the fragments
+    the OCR was unsure of (see DOUBTFUL_SCORE), which shows the page may be worth reading again.
     """
+    engine.use_angle_cls = classify
     result, _elapsed = engine(page_image)
-    return group_into_rows(result or [])
+    detections = [(box, fix_pound_signs(text), confidence) for box, text, confidence in result or []]
+    doubtful = sum(1 for _, text, confidence in detections
+                   if float(confidence) < DOUBTFUL_SCORE and len(text.strip()) >= DOUBTFUL_MIN_CHARS)
+    return group_into_rows(detections), doubtful
+
+
+def mostly_unreadable(rows, doubtful):
+    """True if most of the page read badly, which is how an upside-down scan looks to the OCR."""
+    pieces = sum(len(row) for row in rows)
+    return doubtful >= UNREADABLE_MIN and doubtful * 2 > pieces
 
 
 def make_engine():
@@ -137,43 +175,103 @@ def make_engine():
         return RapidOCR(text_score=0.2, box_thresh=0.3, unclip_ratio=2.0)
 
 
-def ocr_images(images):
-    """
-    OCR a list of page images and return their rows, in page order.
-
-    Pages are read one at a time on purpose: onnxruntime already uses every CPU core for a single
-    page, and a test with four worker processes on a 27-page filing was slower (211s against 167s).
-    The engine is created only when there is something to read.
-    """
-    if not images:
-        return []
-    engine = make_engine()
-    print(f"  OCR on the {'GPU' if gpu.in_use() else 'CPU'}: {len(images)} pages")
-    return [ocr_page(engine, image) for image in images]
+_engines = {}       # the engines made so far, by whether they run on the GPU
 
 
-def cache_file(out_dir, stem, suffix):
+def shared_engine():
     """
-    Path of a working file (OCR cache, rescan record) in the `cache` folder inside `out_dir`,
-    so the output folder itself holds only results.  A file left beside the results by an
-    older version is moved into the cache folder the first time it is looked for.
+    The OCR engine, made once and then reused: loading the three models takes about half a second,
+    which added up over thousands of filings.  The GPU setting can change (--cpu), so there is one per setting.
     """
+    on_gpu = gpu.in_use()
+    if on_gpu not in _engines:
+        _engines[on_gpu] = make_engine()
+    return _engines[on_gpu]
+
+
+def working_file(out_dir, stem, suffix):
+    """Path of a working file (OCR cache, rescan record) in the `cache` folder inside `out_dir`,
+    so the output folder itself holds only results."""
     folder = Path(out_dir) / "cache"
     folder.mkdir(parents=True, exist_ok=True)
-    path, old = folder / f"{stem}{suffix}", Path(out_dir) / f"{stem}{suffix}"
-    if old.exists() and not path.exists():
-        old.replace(path)
-    return path
+    return folder / f"{stem}{suffix}"
 
 
 def cache_path(pdf_path, out_dir):
     """Where the OCR result of a PDF is cached."""
-    return cache_file(out_dir, Path(pdf_path).stem, ".ocr.json")
+    return working_file(out_dir, Path(pdf_path).stem, ".ocr.json")
 
 
 def save_cache(pdf_path, out_dir, pages):
     """Write the pages to the OCR cache file."""
-    cache_path(pdf_path, out_dir).write_text(json.dumps(pages, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_json(cache_path(pdf_path, out_dir), pages)
+
+
+def read_page(engine, page, dpi, reread):
+    """
+    OCR one page; returns (rows, was_reread).
+
+    A page that reads badly is tried again with the angle classifier (it may be upside down).  With
+    `reread`, a page the OCR is still unsure of is read again at REREAD_DPI.  Each time, the reading
+    with fewer doubtful pieces of text is kept, so trying again can never make a page worse.
+    """
+    image = render_page(page, dpi=dpi)
+    rows, doubtful = ocr_page_scored(engine, image)
+    classify = False
+    if mostly_unreadable(rows, doubtful):
+        turned, fewer = ocr_page_scored(engine, image, classify=True)
+        if fewer < doubtful:
+            rows, doubtful, classify = turned, fewer, True
+    if not (reread and doubtful and REREAD_DPI > dpi):
+        return rows, False
+    better, fewer = ocr_page_scored(engine, render_page(page, dpi=REREAD_DPI), classify)
+    return (better, True) if fewer < doubtful else (rows, False)
+
+
+def read_scanned(doc, numbers, dpi, reread=True):
+    """
+    OCR the given pages (numbered from 0) of an open PDF; returns {page number: rows}.
+
+    See read_page for the pages that are read again.  Pages that read cleanly stay at the normal
+    resolution, which keeps the run fast.
+
+    Pages are read one at a time on purpose: onnxruntime already uses every CPU core for a single
+    page, and a test with four worker processes on a 27-page filing was slower (211s against 167s).
+    Three worker threads sharing the engine were slower too (55s against 36s for 46 pages).
+    """
+    if not numbers:
+        return {}
+    engine = shared_engine()
+    print(f"  OCR on the {'GPU' if gpu.in_use() else 'CPU'}: {len(numbers)} pages")
+    pages, reread_numbers = {}, []
+    for number in numbers:
+        pages[number], was_reread = read_page(engine, doc[number], dpi, reread)
+        if was_reread:
+            reread_numbers.append(number + 1)
+    if reread_numbers:
+        print(f"  Re-read pages {reread_numbers} at {REREAD_DPI} dpi (the OCR was unsure of some text)")
+    return pages
+
+
+def read_pages(pdf_path, dpi, use_text_layer):
+    """Read every page: from the text layer where there is one, otherwise by OCR."""
+    pages, to_ocr = [], []                  # to_ocr: numbers of the pages with no text layer
+    with pymupdf.open(pdf_path) as doc:
+        for number, page in enumerate(doc):
+            rows = text_layer_rows(page) if use_text_layer else None
+            pages.append(rows)
+            if rows is None:
+                to_ocr.append(number)
+        for number, rows in read_scanned(doc, to_ocr, dpi).items():
+            pages[number] = rows
+    print(f"{Path(pdf_path).name}: {len(pages) - len(to_ocr)} of {len(pages)} pages read from the text layer, "
+          f"{len(to_ocr)} by OCR")
+    return pages
+
+
+def is_scan(page):
+    """True if the page has no usable text layer, so it has to be OCRed."""
+    return len(page.get_text("words")) < MIN_TEXT_WORDS
 
 
 def reocr_pages(pdf_path, numbers, dpi):
@@ -182,13 +280,10 @@ def reocr_pages(pdf_path, numbers, dpi):
 
     Pages with a text layer are skipped: their text is exact, so a rescan cannot improve it.
     """
-    images = {}
     with pymupdf.open(pdf_path) as doc:
-        for number in numbers:
-            page = doc[number - 1]
-            if text_layer_rows(page) is None:
-                images[number] = render_page(page, dpi=dpi)
-    return dict(zip(images, ocr_images(list(images.values()))))
+        scanned = [n - 1 for n in numbers if is_scan(doc[n - 1])]
+        rows = read_scanned(doc, scanned, dpi, reread=False)
+    return {number + 1: page for number, page in rows.items()}
 
 
 def ocr_pdf(pdf_path, out_dir, dpi=DEFAULT_DPI, use_cache=True, use_text_layer=True):
@@ -201,44 +296,17 @@ def ocr_pdf(pdf_path, out_dir, dpi=DEFAULT_DPI, use_cache=True, use_text_layer=T
     pdf_path = Path(pdf_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    cache_file = cache_path(pdf_path, out_dir)
+    cached = cache_path(pdf_path, out_dir)
 
-    # If caching is enabled and the cache file exists, load the cached OCR result
-    if use_cache and cache_file.exists():
-        with open(cache_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+    if use_cache and cached.exists():
+        return json.loads(cached.read_text(encoding="utf-8"))
 
     pages = read_pages(pdf_path, dpi, use_text_layer)
     save_cache(pdf_path, out_dir, pages)
     return pages
 
 
-def read_pages(pdf_path, dpi, use_text_layer):
-    """Read every page: from the text layer where there is one, otherwise by OCR."""
-    pages, to_ocr = [], []  # to_ocr: (page number, image) for the pages with no text layer
-    with pymupdf.open(pdf_path) as doc:
-        for number, page in enumerate(doc):
-            rows = text_layer_rows(page) if use_text_layer else None
-            pages.append(rows)
-            if rows is None:
-                to_ocr.append((number, render_page(page, dpi=dpi)))
-
-    for (number, _), rows in zip(to_ocr, ocr_images([image for _, image in to_ocr])):
-        pages[number] = rows
-    print(f"{Path(pdf_path).name}: {len(pages) - len(to_ocr)} of {len(pages)} pages read from the text layer, "
-          f"{len(to_ocr)} by OCR")
-    return pages
-
-
-def rows_to_lines(rows):
-    """
-    Convert a list of rows (each a list of (x_left, text, x_right)) into plain text lines.
-    Each line is the text fragments of that row joined by two spaces.
-    """
-    return ["  ".join(fragment[1] for fragment in row) for row in rows]
-
-
 def write_text_dump(pages, path):
     """Raw text, page by page, so a human can compare it against the original scan."""
-    raw = "\n".join(f"PAGE {i}\n" + "\n".join(rows_to_lines(page)) for i, page in enumerate(pages, 1))
+    raw = "\n".join(f"PAGE {i}\n" + "\n".join(to_lines(page)) for i, page in enumerate(pages, 1))
     path.write_text(raw, encoding="utf-8")

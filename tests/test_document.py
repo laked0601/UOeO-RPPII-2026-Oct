@@ -1,7 +1,7 @@
 """
 Tests for extract_data.parsing.document.
 
-The fixtures in tests/fixtures are the OCR text (one list of lines per page) of
+The fixtures in tests/fixtures are the saved OCR output (rows of positioned fragments per page) of
 two real filings, so the tests run without repeating the slow OCR step:
   * 11508952_aa_2025-09-23      small company accounts (GBP, pounds)
   * companies_house_document    Shell plc interim accounts (USD, millions)
@@ -19,8 +19,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def load(stem):
-    lines = json.loads((FIXTURES / f"{stem}.lines.json").read_text(encoding="utf-8"))
-    return extract_document(lines, f"{stem}.pdf"), lines
+    pages = json.loads((FIXTURES / f"{stem}.ocr.json").read_text(encoding="utf-8"))
+    return extract_document(pages, f"{stem}.pdf"), pages
 
 
 def statement(result, name):
@@ -116,9 +116,11 @@ def test_shell_income_statement_negatives_and_totals():
 
 
 def test_ocr_digit_error_in_a_total_is_reported():
-    result, lines = load("companies_house_document")
-    broken = copy.deepcopy(lines)
-    broken[2] = [line.replace("Total equity  265,441", "Total equity  265,841") for line in broken[2]]
+    result, pages = load("companies_house_document")
+    broken = copy.deepcopy(pages)
+    for row in broken[2]:
+        if row[0][1] == "Total equity":
+            row[1][1] = row[1][1].replace("265,441", "265,841")
     warnings = extract_document(broken, "x.pdf")["warnings"]
     assert any("Total equity" in w and "265,841" in w for w in warnings)
 
@@ -159,7 +161,7 @@ def test_small_company_note_tables():
         "freehold_land_and_buildings", "plant_and_equipment", "total"]
     depreciation = row(tangible, "Depreciation charged in the year")
     assert list(depreciation["values"].values()) == [None, 213, 213]  # nil cell the OCR dropped
-    assert "partial_alignment" in depreciation["flags"]
+    assert "aligned_by_position" in depreciation["flags"]
 
 
 def test_contents_page_is_not_treated_as_a_table():

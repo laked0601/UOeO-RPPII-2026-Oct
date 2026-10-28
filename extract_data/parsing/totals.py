@@ -131,21 +131,18 @@ def check_column(table, key, warnings):
     """
     Cross-check the totals of one column and mark which rows are totals.
 
-    A row is treated as a total if its label starts with "Total", reads like
-    a total ("Net assets", "Income for the period") or has no label at all.
-    It is verified if its figure equals the sum of one of three groups of rows:
-      * the section it is in (rows since the section heading),
-      * the rows since the last verified total, or
-      * the running list of all rows so far.
-    When a total is verified, the rows it summed are replaced in these groups
-    by the total itself, so a later total can build on it.  A total can also
-    equal an earlier total (e.g. "Total liabilities and equity" = "Total assets").
-    A "Total ..." row, or a subtotal in a section with several rows, that
-    matches none of these is reported, as that usually means an OCR digit
-    error.  Rows that merely look like totals but do not add up are treated as
-    ordinary rows and not reported.
-    A single missing figure (a "-" the OCR dropped) is assumed to be nil if
-    that is what makes the total add up.
+    A row counts as a total if its label starts with "Total", reads like one ("Net assets",
+    "Income for the period") or has no label.  It checks out if its figure equals the sum of
+      * the rows of its section,
+      * the rows since the last total that checked out, or
+      * all the rows so far.
+    A total that checks out replaces the rows it summed, so a later total can build on it.  It may
+    also equal an earlier total ("Total liabilities and equity" = "Total assets").
+
+    A "Total ..." row, or a subtotal in a section of several rows, that matches none of these is
+    reported, because that usually means a misread digit.  Other rows that look like totals but
+    do not add up are treated as ordinary rows.  If one figure is missing (a "-" the OCR dropped)
+    and taking it as nil makes the total add up, it is taken as nil.
     """
     checker = ColumnChecker(table, key, warnings)
     for row in table["rows"]:

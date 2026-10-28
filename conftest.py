@@ -1,2 +1,8 @@
-# Presence of this file makes pytest put the project folder on the import path,
-# so the tests can "import extract_data" without installing the project.
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def fresh_ocr_engines():
+    """Tests swap in fake engines, so none made by an earlier test may be reused."""
+    from extract_data.reading import ocr
+    ocr._engines.clear()

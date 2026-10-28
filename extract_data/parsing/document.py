@@ -72,9 +72,8 @@ def extract_document(pages, source_file="", flagged_pages=None):
     """
     Extract everything from one filing.
 
-    `pages` is a list of pages; each page is a list of rows, either text lines
-    or OCR fragments (x_left, text, x_right).  Fragments are preferred because
-    their positions allow figures to be placed under the right column.
+    `pages` is a list of pages; each page is a list of rows, each a list of OCR fragments
+    (x_left, text, x_right).  Their positions let figures be placed under the right column.
     If `flagged_pages` is a set, the page numbers (from 1) of tables whose totals did not add
     up are added to it: those are the pages worth reading again at a higher resolution.
     Returns a JSON-friendly dict:

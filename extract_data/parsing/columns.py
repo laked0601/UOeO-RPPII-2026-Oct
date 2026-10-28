@@ -1,14 +1,12 @@
 """
 The columns of a table, worked out from its header rows.
 
-A header row is a list of (text, x_left, x_right); the x values are None when the OCR gave no
-positions.  `build_columns` turns the stacked header rows ("Consolidated" / "2025" / "$ million")
-into one description per column, and `column_base` / `column_qualifier` give each column the key
-its figures are stored under.
+A header row is a list of (text, x_left, x_right).  `build_columns` turns the stacked header rows
+("Consolidated" / "2025" / "$ million") into one description per column, and `column_base` /
+`column_qualifier` give each column the key its figures are stored under.
 """
 
 import re
-from collections import Counter
 from datetime import timedelta
 
 from extract_data.parsing.figures import UNITS, find_dates
@@ -20,7 +18,7 @@ SPAN_WORDS = {"group", "company", "consolidated", "llp", "parent", "charity", "a
 
 def header_from(texts, spans):
     """Build a header row from text pieces and their horizontal extents."""
-    return [(t, *(s if s else (None, None))) for t, s in zip(texts, spans)]
+    return [(text, *span) for text, span in zip(texts, spans)]
 
 
 def parse_column(text, x1=None, x2=None):
@@ -63,7 +61,7 @@ def target_columns(centre, centres):
 
 
 def positioned_columns(header_rows, base):
-    """Columns built from header pieces that have x positions: each piece joins its nearest column."""
+    """Columns built from the header pieces: each piece joins its nearest column."""
     centres = [(p[1] + p[2]) / 2 for p in base]
     parts = [[] for _ in base]
     for r in header_rows:  # includes one-piece lines such as "Plant and"
@@ -80,34 +78,20 @@ def positioned_columns(header_rows, base):
     return [parse_column(" ".join(p), b[1], b[2]) for p, b in zip(parts, base)]
 
 
-def indexed_columns(rows):
-    """Columns built from header pieces without positions: pieces are matched by index."""
-    lengths = Counter(len(r) for r in rows)
-    count = max(lengths, key=lambda n: (lengths[n], n))
-    parts = [[] for _ in range(count)]
-    for r in rows:
-        if len(r) <= count:
-            for i, piece in enumerate(r):
-                parts[i].append(piece[0])
-    return [parse_column(" ".join(p)) for p in parts]
-
-
 def build_columns(header_rows):
     """
     Turn header rows into column descriptions.
 
     Header rows are stacked on top of each other ("Consolidated / 2025 /
-    $ million").  With horizontal positions, each piece joins the column whose
-    centre it is nearest to, so a two-line heading ("Freehold land" over "and
-    buildings") stays together even when the lines have different numbers of
-    pieces.  Without positions, pieces are matched by index.
+    $ million").  Each piece joins the column whose centre it is nearest to, so a
+    two-line heading ("Freehold land" over "and buildings") stays together even
+    when the lines have different numbers of pieces.  The columns are those of the
+    header row with the most pieces.
     """
     rows = [r for r in header_rows if len(r) >= 2]
     if not rows:
         return None
-    if all(piece[1] is not None for r in header_rows for piece in r):
-        return positioned_columns(header_rows, max(rows, key=len))
-    return indexed_columns(rows)
+    return positioned_columns(header_rows, max(rows, key=len))
 
 
 def column_base(column, index, period_end):

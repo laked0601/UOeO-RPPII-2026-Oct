@@ -13,8 +13,13 @@ import os
 
 CONNSTR_VAR = "RPP2_CONNSTR"
 ACCOUNT_TYPES = ("AA", "AA01", "AA03", "AAMD")  # filing types that hold annual accounts
+MIN_PAGES = 2                                   # shorter filings are skipped
+MAX_PER_RUN = 100000                            # the most filings one run takes, whatever --limit says
 
-# Accounts filings with a PDF that have no row in companies_house_accounts yet (`%s` is the limit).
+# Accounts filings with a PDF that have no row in companies_house_accounts yet, and enough pages to hold
+# accounts (a 1-page filing is a notice or form with no figures).  A filing whose page count is not known is
+# kept.  The `%s` placeholders are the filing types, the fewest pages, and (from build_query) the earliest
+# date if wanted and the limit.
 PENDING_FILINGS = """
     SELECT fh.id, fh.pdf_url
     FROM filing_history fh
@@ -23,9 +28,20 @@ PENDING_FILINGS = """
     WHERE ft.name IN ({types})
       AND fh.pdf_url LIKE '%format=pdf%'
       AND cha.id IS NULL
-    ORDER BY fh.id
-    LIMIT %s
+      AND (fh.document_page_count IS NULL OR fh.document_page_count >= %s)
 """.format(types=", ".join(["%s"] * len(ACCOUNT_TYPES)))
+SINCE_CLAUSE = "      AND (fh.`date` IS NULL OR fh.`date` >= %s)\n"      # a filing with no date is kept
+ORDER_BY_ID = "    ORDER BY fh.id"
+ORDER_NEWEST_FIRST = "    ORDER BY fh.`date` DESC, fh.id DESC"
+LIMIT_CLAUSE = "\n    LIMIT %s"
+
+
+def build_query(since_year=None, newest_first=False):
+    """The query for the filings still to save: from `since_year` on if given, newest first if asked."""
+    query = PENDING_FILINGS
+    if since_year:
+        query += SINCE_CLAUSE
+    return query + (ORDER_NEWEST_FIRST if newest_first else ORDER_BY_ID) + LIMIT_CLAUSE
 
 
 def connect():
@@ -38,10 +54,18 @@ def connect():
     return mysql.connector.connect(**settings)
 
 
-def pending_filings(connection, limit):
-    """Up to `limit` (filing id, pdf url) pairs that have not been saved yet."""
+def pending_filings(connection, limit=None, min_pages=MIN_PAGES, since_year=None, newest_first=False):
+    """
+    The (filing id, pdf url) pairs that have not been saved yet and have `min_pages` or more, filed in
+    `since_year` or later if that is given, newest first if `newest_first`.  There are at most `limit` of
+    them, and never more than MAX_PER_RUN, which is also the number when no limit is given.
+    """
+    parameters = [*ACCOUNT_TYPES, min_pages]
+    if since_year:
+        parameters.append(f"{since_year}-01-01")
+    parameters.append(min(limit or MAX_PER_RUN, MAX_PER_RUN))
     cursor = connection.cursor()
-    cursor.execute(PENDING_FILINGS, (*ACCOUNT_TYPES, limit))
+    cursor.execute(build_query(since_year, newest_first), tuple(parameters))
     rows = cursor.fetchall()
     cursor.close()
     return rows
