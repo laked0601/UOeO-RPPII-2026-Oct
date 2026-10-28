@@ -3,7 +3,6 @@
 from urllib.error import HTTPError, URLError
 
 import pytest
-
 from mysql.connector import IntegrityError, errorcode
 
 from extract_data.storage import accounts, database, ionos
@@ -225,15 +224,15 @@ def test_the_next_downloads_start_while_a_filing_is_being_read(tmp_path, monkeyp
 def test_pending_query_asks_for_unsaved_accounts_filings_only():
     query = database.build_query()
     assert "cha.id IS NULL" in query and "LIMIT %s" in query and "document_page_count" in query
-    assert query.count("%s") == len(database.ACCOUNT_TYPES) + 2         # types, fewest pages, limit
+    assert query.count("%s") == len(database.ACCOUNT_TYPES) + 2  # types, fewest pages, limit
     assert "ORDER BY fh.id" in query and "`date`" not in query
 
 
 def test_pending_query_can_start_at_a_year_and_run_newest_first():
     query = database.build_query(since_year=2020, newest_first=True)
-    assert "fh.`date` >= %s" in query and "fh.`date` IS NULL" in query     # a filing with no date is kept
+    assert "fh.`date` >= %s" in query and "fh.`date` IS NULL" in query  # a filing with no date is kept
     assert "ORDER BY fh.`date` DESC, fh.id DESC" in query
-    assert query.count("%s") == len(database.ACCOUNT_TYPES) + 3         # types, fewest pages, date, limit
+    assert query.count("%s") == len(database.ACCOUNT_TYPES) + 3  # types, fewest pages, date, limit
 
 
 class QueryConnection:
@@ -255,11 +254,11 @@ class QueryConnection:
 
 def test_a_run_takes_at_most_the_maximum_whatever_the_limit():
     connection = QueryConnection()
-    database.pending_filings(connection)                                  # no limit given
+    database.pending_filings(connection)  # no limit given
     assert connection.params[-1] == database.MAX_PER_RUN == 100000
-    database.pending_filings(connection, 5_000_000)                       # more than allowed
+    database.pending_filings(connection, 5_000_000)  # more than allowed
     assert connection.params[-1] == database.MAX_PER_RUN
-    database.pending_filings(connection, 250)                             # fewer is kept
+    database.pending_filings(connection, 250)  # fewer is kept
     assert connection.params[-1] == 250
     assert connection.sql.count("%s") == len(connection.params)
 

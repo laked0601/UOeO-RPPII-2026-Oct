@@ -175,7 +175,7 @@ def make_engine():
         return RapidOCR(text_score=0.2, box_thresh=0.3, unclip_ratio=2.0)
 
 
-_engines = {}       # the engines made so far, by whether they run on the GPU
+_engines = {}  # the engines made so far, by whether they run on the GPU
 
 
 def shared_engine():
@@ -255,7 +255,7 @@ def read_scanned(doc, numbers, dpi, reread=True):
 
 def read_pages(pdf_path, dpi, use_text_layer):
     """Read every page: from the text layer where there is one, otherwise by OCR."""
-    pages, to_ocr = [], []                  # to_ocr: numbers of the pages with no text layer
+    pages, to_ocr = [], []  # to_ocr: numbers of the pages with no text layer
     with pymupdf.open(pdf_path) as doc:
         for number, page in enumerate(doc):
             rows = text_layer_rows(page) if use_text_layer else None

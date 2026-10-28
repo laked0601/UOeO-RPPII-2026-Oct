@@ -4,10 +4,12 @@ Tests for extract_data.flatten: the one-row-per-figure output for SQL.
 
 import csv
 import json
+from pathlib import Path
+
 import pytest
+
 from extract_data.parsing.document import extract_document
 from extract_data.results.flatten import FACT_COLUMNS, facts_flags, to_facts, write_facts
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NAMES = ["11508952_aa_2025-09-23", "companies_house_document", "05421996_aa_2026-05-26",

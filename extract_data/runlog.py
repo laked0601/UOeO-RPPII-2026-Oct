@@ -13,8 +13,8 @@ def format_duration(seconds):
     return f"{minutes // 60}h {minutes % 60:02d}m"
 
 
-RECENT = 20             # the estimate averages the last 20 filings, so it follows how hard the scans are
-MIN_FOR_ESTIMATE = 3    # no estimate before this many filings: the first one includes the start-up
+RECENT = 20  # the estimate averages the last 20 filings, so it follows how hard the scans are
+MIN_FOR_ESTIMATE = 3  # no estimate before this many filings: the first one includes the start-up
 
 
 def estimate_remaining(gaps, remaining):

@@ -8,13 +8,14 @@ Fixtures (saved OCR output with fragment positions, see test_layouts.py):
 """
 
 import json
+from pathlib import Path
+
 from extract_data.parsing.company import clean_company_number
 from extract_data.parsing.document import extract_document
 from extract_data.parsing.labels import standard_label
 from extract_data.parsing.rows import read_rows
 from extract_data.results.standardise import standardise
 from rowtext import text_row
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

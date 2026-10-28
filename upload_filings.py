@@ -89,7 +89,7 @@ def main(argv=None):
             print(f"Started {started:%Y-%m-%d %H:%M:%S}  options: {' '.join(sys.argv[1:]) or '(none)'}")
             with gpu.setting(not args.cpu):
                 run(args, results)
-    finally:                                    # also when the run is stopped (Ctrl+C) or fails part way
+    finally:  # also when the run is stopped (Ctrl+C) or fails part way
         failed = [filing_id for filing_id, error in results if error is not None]
         running.replace(log_dir / log_name(started, len(results), len(failed)))
     if failed:

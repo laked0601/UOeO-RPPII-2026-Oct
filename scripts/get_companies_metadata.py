@@ -1,11 +1,13 @@
 import datetime
 import os
 import re
+from tempfile import NamedTemporaryFile
+
 import requests
-from helpers import CONNECTION_POOL, retried_request
 from mysql.connector.abstracts import MySQLCursorAbstract
 from mysql.connector.connection import MySQLConnection
-from tempfile import NamedTemporaryFile
+
+from helpers import CONNECTION_POOL, retried_request
 
 CSV_URL = "https://find-and-update.company-information.service.gov.uk/advanced-search/csv"
 

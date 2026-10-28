@@ -2,9 +2,11 @@
 Tests for the results log (pipeline.py) and the --log option of main.py (log entries and the --log option).
 """
 
-import main
-import pytest
 from datetime import datetime
+
+import pytest
+
+import main
 from extract_data.pipeline import append_log, failure_entry, result_entry
 
 NOW = datetime(2026, 10, 27, 14, 3, 9)

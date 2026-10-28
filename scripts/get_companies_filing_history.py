@@ -1,7 +1,9 @@
-import bs4
 import datetime
 import re
+
+import bs4
 import requests
+
 from helpers import CONNECTION_POOL, retried_request
 
 PAGES_RE = re.compile(r"\((\d+?) pages?\)")

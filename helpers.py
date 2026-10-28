@@ -1,8 +1,9 @@
 import json
 import os
 import re
-import requests
 import time
+
+import requests
 from mysql.connector.connection import MySQLConnection
 from mysql.connector.pooling import MySQLConnectionPool
 

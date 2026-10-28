@@ -33,13 +33,13 @@ from extract_data.storage import ionos
 
 INSERT_RECORD = "INSERT INTO companies_house_accounts (filing_history_id) VALUES (%s)"
 SITE = "https://find-and-update.company-information.service.gov.uk"  # for urls stored without a host
-DOWNLOAD_TIMEOUT = 60       # seconds without an answer before giving up
-DOWNLOAD_TRIES = 3          # a download that fails because of the network is tried this many times
-RECONNECT_TRIES = 3         # tries to get a dropped database connection back before a filing fails
-RETRY_WAIT = 5              # seconds before the second try, twice that before the third
-DOWNLOAD_WORKERS = 3        # downloads running at once
-PREFETCH = 4                # filings downloaded ahead of the one being OCRed
-UPLOAD_WORKERS = 2          # uploads running at once
+DOWNLOAD_TIMEOUT = 60  # seconds without an answer before giving up
+DOWNLOAD_TRIES = 3  # a download that fails because of the network is tried this many times
+RECONNECT_TRIES = 3  # tries to get a dropped database connection back before a filing fails
+RETRY_WAIT = 5  # seconds before the second try, twice that before the third
+DOWNLOAD_WORKERS = 3  # downloads running at once
+PREFETCH = 4  # filings downloaded ahead of the one being OCRed
+UPLOAD_WORKERS = 2  # uploads running at once
 
 
 def local_paths(work_dir, filing_id):
@@ -59,7 +59,7 @@ def fetch(url):
         try:
             with urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
                 return response.read()
-        except OSError as error:                # includes URLError, HTTPError and timeouts
+        except OSError as error:  # includes URLError, HTTPError and timeouts
             if attempt == DOWNLOAD_TRIES or not worth_retrying(error):
                 raise
             time.sleep(RETRY_WAIT * attempt)
@@ -104,7 +104,7 @@ def record_filing(connection, filing_history_id):
 
 def upload_filing(client, filing_id, pdf_path, txt_path):
     """Upload a filing's PDF and text file to the bucket."""
-    pdf_key, txt_key = ionos.object_keys(filing_id)       # the keys follow from the id, so the row needs no path
+    pdf_key, txt_key = ionos.object_keys(filing_id)  # the keys follow from the id, so the row needs no path
     ionos.upload_file(client, pdf_path, pdf_key, "application/pdf")
     ionos.upload_file(client, txt_path, txt_key, "text/plain; charset=utf-8")
 
@@ -119,7 +119,7 @@ def record_uploaded(uploading, connection, wait):
         try:
             upload.result()
             record_filing(connection, filing_id)
-        except Exception as error:              # one bad filing must not stop the rest
+        except Exception as error:  # one bad filing must not stop the rest
             yield filing_id, error
         else:
             yield filing_id, None
@@ -136,7 +136,7 @@ def save_filings(filings, work_dir, client, connection, dpi=DEFAULT_DPI, dry_run
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     waiting = iter(filings)
-    downloading, uploading = deque(), deque()              # (filing id, future), oldest first
+    downloading, uploading = deque(), deque()  # (filing id, future), oldest first
 
     with ThreadPoolExecutor(DOWNLOAD_WORKERS) as downloads, ThreadPoolExecutor(UPLOAD_WORKERS) as uploads:
         def start_downloads():
@@ -151,7 +151,7 @@ def save_filings(filings, work_dir, client, connection, dpi=DEFAULT_DPI, dry_run
         start_downloads()
         while downloading:
             filing_id, download = downloading.popleft()
-            start_downloads()                               # keep the next downloads going during the OCR
+            start_downloads()  # keep the next downloads going during the OCR
             pdf_path, txt_path = local_paths(work_dir, filing_id)
             try:
                 download.result()

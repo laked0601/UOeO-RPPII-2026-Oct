@@ -25,7 +25,7 @@ def test_the_log_is_named_by_the_filings_handled_and_holds_what_was_printed(tmp_
     assert log.name.endswith("_3-filings.txt") and "running" not in log.name
     text = log.read_text(encoding="utf-8")
     assert "3 filing(s) to save" in text and "[3/3] saved filing 3" in text and "Finished 3 filing(s)" in text
-    assert "[3/3] saved filing 3" in capsys.readouterr().out        # and it was shown on the screen as well
+    assert "[3/3] saved filing 3" in capsys.readouterr().out  # and it was shown on the screen as well
 
 
 def test_a_run_with_failures_is_named_for_them_and_still_exits_with_an_error(tmp_path, monkeypatch):

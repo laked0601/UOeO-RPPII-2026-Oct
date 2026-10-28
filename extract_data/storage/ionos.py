@@ -9,8 +9,9 @@ The access key and secret key are never written in the code: they are read from 
 environment variables IONOS_BUCKET_ACCESS_KEY and IONOS_BUCKET_SECRET_KEY.
 """
 
-import boto3
 import os
+
+import boto3
 
 BUCKET = "uoeo-rpp2-2026-oct-dev"
 REGION = "eu-central-3"  # Berlin

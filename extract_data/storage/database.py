@@ -8,13 +8,14 @@ The connection settings are read from the environment variable RPP2_CONNSTR, a J
 """
 
 import json
-import mysql.connector
 import os
+
+import mysql.connector
 
 CONNSTR_VAR = "RPP2_CONNSTR"
 ACCOUNT_TYPES = ("AA", "AA01", "AA03", "AAMD")  # filing types that hold annual accounts
-MIN_PAGES = 2                                   # shorter filings are skipped
-MAX_PER_RUN = 100000                            # the most filings one run takes, whatever --limit says
+MIN_PAGES = 2  # shorter filings are skipped
+MAX_PER_RUN = 100000  # the most filings one run takes, whatever --limit says
 
 # Accounts filings with a PDF that have no row in companies_house_accounts yet, and enough pages to hold
 # accounts (a 1-page filing is a notice or form with no figures).  A filing whose page count is not known is
@@ -30,7 +31,7 @@ PENDING_FILINGS = """
       AND cha.id IS NULL
       AND (fh.document_page_count IS NULL OR fh.document_page_count >= %s)
 """.format(types=", ".join(["%s"] * len(ACCOUNT_TYPES)))
-SINCE_CLAUSE = "      AND (fh.`date` IS NULL OR fh.`date` >= %s)\n"      # a filing with no date is kept
+SINCE_CLAUSE = "      AND (fh.`date` IS NULL OR fh.`date` >= %s)\n"  # a filing with no date is kept
 ORDER_BY_ID = "    ORDER BY fh.id"
 ORDER_NEWEST_FIRST = "    ORDER BY fh.`date` DESC, fh.id DESC"
 LIMIT_CLAUSE = "\n    LIMIT %s"

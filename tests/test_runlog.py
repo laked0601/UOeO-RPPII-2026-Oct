@@ -24,9 +24,9 @@ def test_a_failed_filing_and_a_dry_run_are_worded_differently():
 
 
 def test_the_estimate_waits_for_a_few_filings_and_uses_the_recent_average():
-    assert runlog.estimate_remaining([8.0, 9.0], 40) is None             # too early
-    assert runlog.estimate_remaining([8.0, 9.0, 10.0], 40) == 360.0      # 9s x 40
-    assert runlog.estimate_remaining([8.0, 9.0, 10.0], 0) is None        # nothing left
+    assert runlog.estimate_remaining([8.0, 9.0], 40) is None  # too early
+    assert runlog.estimate_remaining([8.0, 9.0, 10.0], 40) == 360.0  # 9s x 40
+    assert runlog.estimate_remaining([8.0, 9.0, 10.0], 0) is None  # nothing left
 
 
 def test_the_estimate_shows_the_time_left_and_when_it_should_finish():

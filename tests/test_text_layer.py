@@ -6,6 +6,7 @@ the tests are quick and do not need the OCR models.
 """
 
 import pymupdf
+
 from extract_data.parsing.document import extract_document
 from extract_data.reading import gpu, ocr
 

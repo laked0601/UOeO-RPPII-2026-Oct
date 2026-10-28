@@ -15,14 +15,16 @@ contains inconsistent totals, or the OCR misread a dash as "1".
 """
 
 import json
+from pathlib import Path
+
 import pytest
+
 from extract_data.parsing.document import extract_document
 from extract_data.parsing.figures import is_year_row
 from extract_data.parsing.labels import standard_label
 from extract_data.parsing.rows import TRAILING_NUMBERS, read_rows
 from extract_data.parsing.tables import STATEMENT_HEADING
 from rowtext import text_row
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

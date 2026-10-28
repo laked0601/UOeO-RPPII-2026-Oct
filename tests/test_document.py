@@ -9,11 +9,13 @@ two real filings, so the tests run without repeating the slow OCR step:
 
 import copy
 import json
-import pytest
 from datetime import date
+from pathlib import Path
+
+import pytest
+
 from extract_data.parsing.document import extract_document
 from extract_data.parsing.figures import detect_units, find_dates, to_number
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -6,12 +6,14 @@ the LLP filing because its fixture leaves out the prose pages that mention sterl
 """
 
 import json
-import main
-import pytest
 import shutil
+from pathlib import Path
+
+import pytest
+
+import main
 from extract_data.parsing.document import extract_document
 from extract_data.results.standardise import SCHEMA, entity_of, standardise
-from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NAMES = ["11508952_aa_2025-09-23", "companies_house_document", "05421996_aa_2026-05-26",

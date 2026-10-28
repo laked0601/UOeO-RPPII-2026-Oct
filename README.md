@@ -2,10 +2,10 @@
 
 Reads Companies House annual accounts PDFs, scanned or digital, and works with them in two ways:
 
-| Command | What it does |
-|---|---|
-| `python main.py <pdf or folder>` | Reads the PDFs (text layer, or OCR for scans) and writes the figures as JSON and flat CSV facts to `output/`, with a run log. |
-| `python upload_filings.py` | Takes the filings listed in the database, downloads each PDF, OCRs it to a `.txt`, uploads both to the IONOS bucket and logs a row in `companies_house_accounts`. |
+| Command                          | What it does                                                                                                                                                      |
+|----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `python main.py <pdf or folder>` | Reads the PDFs (text layer, or OCR for scans) and writes the figures as JSON and flat CSV facts to `output/`, with a run log.                                     |
+| `python upload_filings.py`       | Takes the filings listed in the database, downloads each PDF, OCRs it to a `.txt`, uploads both to the IONOS bucket and logs a row in `companies_house_accounts`. |
 
 ## Setup
 
@@ -20,10 +20,10 @@ It is used automatically when it works; `--cpu` turns it off.
 
 ## Environment variables
 
-| Variable | Used by |
-|---|---|
-| `RPP2_CONNSTR` | the database connection, as JSON: `{"host": "...", "port": 3306, "user": "...", "password": "...", "database": "...", "ssl_verify_cert": true, "ssl_ca": "path/to/ca.crt"}` |
-| `IONOS_BUCKET_ACCESS_KEY`, `IONOS_BUCKET_SECRET_KEY` | the bucket (not needed with `--dry-run`) |
+| Variable                                             | Used by                                                                                                                                                                     |
+|------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `RPP2_CONNSTR`                                       | the database connection, as JSON: `{"host": "...", "port": 3306, "user": "...", "password": "...", "database": "...", "ssl_verify_cert": true, "ssl_ca": "path/to/ca.crt"}` |
+| `IONOS_BUCKET_ACCESS_KEY`, `IONOS_BUCKET_SECRET_KEY` | the bucket (not needed with `--dry-run`)                                                                                                                                    |
 
 In PowerShell, `$env:IONOS_BUCKET_ACCESS_KEY = "..."` sets one for that window only.
 `setx IONOS_BUCKET_ACCESS_KEY "..."` keeps it for new windows. In PyCharm, add them to the run configuration.

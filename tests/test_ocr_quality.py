@@ -27,7 +27,7 @@ class SizedEngine:
         self.sizes = []
 
     def __call__(self, image):
-        width = image[0]                                   # the "image" is (width, text) from the fake render
+        width = image[0]  # the "image" is (width, text) from the fake render
         self.sizes.append(width)
         if width >= ocr.REREAD_DPI:
             return [(BOX, "Total equity 265,441", 0.95)], 0
@@ -59,7 +59,7 @@ def test_a_re_read_that_is_no_better_is_not_kept(monkeypatch):
     engine = StillGarbledEngine()
     pages = ocr.read_scanned(fake_doc(monkeypatch, engine), [0], 300)
     assert engine.sizes == [300, ocr.REREAD_DPI]
-    assert pages[0][0][0][1] == "garbled at 300"            # the first reading is kept
+    assert pages[0][0][0][1] == "garbled at 300"  # the first reading is kept
 
 
 def test_short_unsure_text_such_as_a_page_number_does_not_trigger_a_re_read(monkeypatch):
