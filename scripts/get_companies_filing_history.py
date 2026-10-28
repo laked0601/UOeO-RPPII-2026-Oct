@@ -1,9 +1,8 @@
-import requests
 import bs4
 import datetime
 import re
+import requests
 from helpers import CONNECTION_POOL, retried_request
-
 
 PAGES_RE = re.compile(r"\((\d+?) pages?\)")
 
@@ -37,7 +36,8 @@ def extract_filings(response: requests.Response, error_message_id: str):
     for r in rows:
         cells = r.find_all("td")
         if not len(cells) == 4:
-            print(f"Expected at most 4 cells in each row for {error_message_id} but found {len(cells)}. Please investigate.")
+            print(
+                f"Expected at most 4 cells in each row for {error_message_id} but found {len(cells)}. Please investigate.")
             return
         filing_date_str = cells[0].get_text().strip()
         try:
@@ -131,9 +131,9 @@ def main(first_page_only=True):
                         page_number += 1
                     cursor.executemany(
                         """
-                            INSERT INTO filing_history_staging (company_number, filing_type, date, description,
-                            pdf_url, document_page_count)
-                            VALUES (%s, %s, %s, %s, %s, %s)
+                        INSERT INTO filing_history_staging (company_number, filing_type, date, description,
+                                                            pdf_url, document_page_count)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         """,
                         all_filings
                     )

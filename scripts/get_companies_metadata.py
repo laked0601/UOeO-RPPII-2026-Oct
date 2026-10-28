@@ -1,12 +1,11 @@
-from mysql.connector.abstracts import MySQLCursorAbstract
-from mysql.connector.connection import MySQLConnection
-import requests
-import re
 import datetime
 import os
+import re
+import requests
 from helpers import CONNECTION_POOL, retried_request
+from mysql.connector.abstracts import MySQLCursorAbstract
+from mysql.connector.connection import MySQLConnection
 from tempfile import NamedTemporaryFile
-
 
 CSV_URL = "https://find-and-update.company-information.service.gov.uk/advanced-search/csv"
 
@@ -15,8 +14,9 @@ def extract_from_csv(filepath: str):
     headers = []
     rows = []
     save_file = False
-    line_re = re.compile(r"^([\W\w\s]+?),((?:[A-Z]{2}|\d{2}|[A-Z]\d)\d{6}),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),(\[.*?\])?,(.*?)$")
-    with open(filepath,'r', encoding="utf-8", newline='') as rf:
+    line_re = re.compile(
+        r"^([\W\w\s]+?),((?:[A-Z]{2}|\d{2}|[A-Z]\d)\d{6}),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),([^,]*?),(\[.*?\])?,(.*?)$")
+    with open(filepath, 'r', encoding="utf-8", newline='') as rf:
         headers = rf.readline().strip().split(',')
         if len(headers) != 11:
             print(f"Warning: expected 11 columns in csv file and received {len(headers)}. Please investigate...")
@@ -31,7 +31,6 @@ def extract_from_csv(filepath: str):
                     save_file = True
                     continue
                 rows.append(tuple(res.groups()))
-
 
     if save_file:
         if not os.path.exists("error_csv_files"):
@@ -49,7 +48,8 @@ def extract_from_csv(filepath: str):
     return headers, rows
 
 
-def add_rows_to_database(connection: MySQLConnection, cursor: MySQLCursorAbstract, source_headers: list[str], rows: list[list[str]]):
+def add_rows_to_database(connection: MySQLConnection, cursor: MySQLCursorAbstract, source_headers: list[str],
+                         rows: list[list[str]]):
     nature_of_business_re = re.compile(r"(\d+)")
     source_assumed_headers = (
         "company_number",
@@ -101,8 +101,8 @@ def add_rows_to_database(connection: MySQLConnection, cursor: MySQLCursorAbstrac
             )
         )
     insert_sql = (
-        "INSERT INTO companies_staging (company_number, company_name, registered_address, type, status, incorporated_on) " +
-        "VALUES (%s, %s, %s, %s, %s, %s)"
+            "INSERT INTO companies_staging (company_number, company_name, registered_address, type, status, incorporated_on) " +
+            "VALUES (%s, %s, %s, %s, %s, %s)"
     )
     try:
         cursor.executemany(insert_sql, company_rows)
@@ -155,7 +155,7 @@ def get_companies_csv_data(session: requests.Session, url: str, params, error_me
     return headers, rows, None, None
 
 
-def get_companies(base_start_year: int=1800):
+def get_companies(base_start_year: int = 1800):
     with CONNECTION_POOL.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT DISTINCT code FROM sic_codes")
@@ -212,8 +212,8 @@ def get_companies(base_start_year: int=1800):
                         if rows_len > 4999:
                             if start_year == end_year:
                                 for end_day, month in (
-                                    (31, 1), (28, 2), (31, 3), (30, 4), (31, 5), (30, 6), (31, 7), (31, 8),
-                                    (30, 9), (31, 10), (30, 11), (31, 12)
+                                        (31, 1), (28, 2), (31, 3), (30, 4), (31, 5), (30, 6), (31, 7), (31, 8),
+                                        (30, 9), (31, 10), (30, 11), (31, 12)
                                 ):
                                     if start_year == this_year:
                                         start_date = datetime.date(start_year, month, 1)
@@ -240,7 +240,7 @@ def get_companies(base_start_year: int=1800):
                                     headers, rows, _, _ = res
                                     if len(rows) > 4999:
                                         for sub_start_day, sub_end_day in (
-                                            (1, 7), (8, 14), (15, 21), (22, end_day)
+                                                (1, 7), (8, 14), (15, 21), (22, end_day)
                                         ):
                                             res = get_companies_csv_data(
                                                 session=s,
@@ -255,9 +255,9 @@ def get_companies(base_start_year: int=1800):
                                                     "sicCodes": padded_code
                                                 },
                                                 error_message_id=(
-                                                    f"sic code {padded_code} for " +
-                                                    f"{start_year}-{month_zfill}-{str(sub_start_day).zfill(2)} to " +
-                                                    f"{start_year}-{month_zfill}-{str(sub_end_day).zfill(2)}"
+                                                        f"sic code {padded_code} for " +
+                                                        f"{start_year}-{month_zfill}-{str(sub_start_day).zfill(2)} to " +
+                                                        f"{start_year}-{month_zfill}-{str(sub_end_day).zfill(2)}"
                                                 )
                                             )
                                             if res[0] is None or res[3] == 'no results':
@@ -285,7 +285,7 @@ def get_companies(base_start_year: int=1800):
 
                 else:
                     add_rows_to_database(conn, cursor, headers, rows)
-                
+
 
 if __name__ == "__main__":
     get_companies()

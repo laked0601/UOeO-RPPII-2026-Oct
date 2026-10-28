@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# This project: generated results, working files and the sample filings
+output/
+downloads/
+extract_data/pdf_files/*.pdf
+!extract_data/pdf_files/11508952_aa_2025-09-23.pdf

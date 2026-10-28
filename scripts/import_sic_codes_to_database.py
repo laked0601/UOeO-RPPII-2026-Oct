@@ -1,6 +1,7 @@
 import helpers
-import requests
 import re
+import requests
+
 # Call this script to load in the SIC codes from the UK government website
 
 

@@ -1,6 +1,12 @@
 mysql-connector-python==26.10.0
 requests==2.34.2
 beautifulsoup4==4.15.0
-pymupdf
-rapidocr-onnxruntime
-pytest
+pymupdf==3.18.0
+rapidocr-onnxruntime==1.2.3
+pytest==9.2
+boto3==1.43.120
+
+# Optional, for OCR on an NVIDIA GPU: replace `onnxruntime` with the GPU build.
+#   pip uninstall -y onnxruntime
+#   pip install onnxruntime-gpu nvidia-cudnn-cu13 nvidia-cublas nvidia-cuda-runtime nvidia-cufft nvidia-curand
+# main.py uses the GPU automatically when it can (`--cpu` turns that off).

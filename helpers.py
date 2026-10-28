@@ -1,16 +1,16 @@
-import os
 import json
+import os
 import re
 import requests
 import time
-from mysql.connector.pooling import MySQLConnectionPool
 from mysql.connector.connection import MySQLConnection
+from mysql.connector.pooling import MySQLConnectionPool
 
 
 class ConnectionPool:
     def __init__(self) -> None:
         try:
-            connstr_json: dict[str, str|int|bool] = json.loads(os.getenv("RPP2_CONNSTR", ""))
+            connstr_json: dict[str, str | int | bool] = json.loads(os.getenv("RPP2_CONNSTR", ""))
             self.pool: MySQLConnectionPool = MySQLConnectionPool(
                 pool_size=2,
                 pool_name=f"pool-{connstr_json.get('user', 'undefined')}",
@@ -29,7 +29,7 @@ class ConnectionPool:
                 ).strip()
             )
 
-    def get_connection(self)-> MySQLConnection:
+    def get_connection(self) -> MySQLConnection:
         return self.pool.get_connection()  # pyright: ignore[reportReturnType]
 
 
