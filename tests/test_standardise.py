@@ -7,26 +7,19 @@ the LLP filing because its fixture leaves out the prose pages that mention sterl
 
 import json
 import shutil
-from pathlib import Path
 
 import pytest
 
 import main
-from extract_data.parsing.document import extract_document
 from extract_data.results.standardise import SCHEMA, entity_of, standardise
+from support import FIXTURES, extract
 
-FIXTURES = Path(__file__).parent / "fixtures"
 NAMES = ["11508952_aa_2025-09-23", "companies_house_document", "05421996_aa_2026-05-26",
          "crown_overseas_abbreviated_2015", "epic_im_llp_group_2025"]
 
 
-def load(name):
-    pages = json.loads((FIXTURES / f"{name}.ocr.json").read_text(encoding="utf-8"))
-    return extract_document(pages, f"{name}.pdf")
-
-
 def standard(name):
-    return standardise(load(name))
+    return standardise(extract(name))
 
 
 def period(result, entity, iso):

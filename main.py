@@ -37,24 +37,41 @@ def build_parser():
     The command line parser.
     """
     ap = argparse.ArgumentParser(description="Extract Companies House accounts PDFs.")
-    ap.add_argument("path", nargs="?", default=DEFAULT_PDF_PATH, help="a PDF file, or a folder of PDFs")
-    ap.add_argument("--out", default=DEFAULT_OUT_DIR, help="output folder (default: output)")
+
+    ap.add_argument(
+        "path", nargs="?", default=DEFAULT_PDF_PATH, help="a PDF file, or a folder of PDFs")
+
+    ap.add_argument(
+        "--out", default=DEFAULT_OUT_DIR, help="output folder (default: output)")
+
     add_ocr_options(ap)
-    ap.add_argument("--no-cache", action="store_true", help="ignore current stored OCR and re-run it")
-    ap.add_argument("--rescan-dpi", type=int, default=DEFAULT_RESCAN_DPI,
-                    help="re-read pages whose totals do not add up at this resolution; 0 turns it off "
-                         "(default: %(default)s)")
-    ap.add_argument("--text", action="store_true", help="also write <name>.txt, the raw text of each page")
-    ap.add_argument("--force-ocr", action="store_true",
-                    help="OCR every page even if the PDF has a text layer")
-    ap.add_argument("--log", help=f"text file the results are logged to (default: <out>/{DEFAULT_LOG_NAME})")
+
+    ap.add_argument(
+        "--no-cache", action="store_true", help="ignore current stored OCR and re-run it")
+
+    ap.add_argument(
+        "--rescan-dpi", type=int, default=DEFAULT_RESCAN_DPI,
+        help="re-read pages misread at the default DPI; 0 turns it off (default: 0, off)")
+
+    ap.add_argument(
+        "--text", action="store_true", help="also write <name>.txt, the raw text of each page")
+
+    ap.add_argument(
+        "--force-ocr", action="store_true", help="OCR every page even if the PDF has a text layer")
+
+    ap.add_argument(
+        "--log", help=f"text file the results are logged to (default: <out>/{DEFAULT_LOG_NAME})")
+
     return ap
 
 
 def report(pdf, json_path, parsed, facts):
-    """Print where a PDF's results went, and its warnings."""
+    """
+    Print where a PDF's results went, and its warnings.
+    """
     print(f"{pdf.name} -> {json_path} "
           f"({len(facts)} figures, {len(parsed['warnings'])} warnings)")
+
     for warning in parsed["warnings"]:
         print(f" - {warning}")
 
@@ -86,11 +103,13 @@ def main(argv=None):
                 json_path, parsed, facts = process_pdf(
                     pdf, out_dir, args.dpi, not args.no_cache, use_text_layer=not args.force_ocr,
                     rescan_dpi=args.rescan_dpi, write_text=args.text)
+
             except Exception as error:  # one unreadable PDF must not stop the rest
                 print(f"{pdf.name} FAILED: {type(error).__name__}: {error}")
                 append_log(log_path, failure_entry(pdf.name, error))
                 failed.append(pdf.name)
                 continue
+
             report(pdf, json_path, parsed, facts)
             append_log(log_path, result_entry(pdf.name, parsed, facts))
 

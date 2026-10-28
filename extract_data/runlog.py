@@ -1,15 +1,22 @@
-"""The progress lines and the log file of upload_filings.py."""
+"""
+The progress lines and the log file of upload_filings.py.
+"""
 
 from datetime import datetime, timedelta
 
 
 def format_duration(seconds):
-    """A length of time as "8.4s", "2m 05s" or "1h 02m"."""
+    """
+    A length of time as "8.4s", "2m 05s" or "1h 02m".
+    """
     if seconds < 60:
         return f"{seconds:.1f}s"
+
     minutes, rest = divmod(int(seconds), 60)
+
     if minutes < 60:
         return f"{minutes}m {rest:02d}s"
+
     return f"{minutes // 60}h {minutes % 60:02d}m"
 
 
@@ -18,9 +25,12 @@ MIN_FOR_ESTIMATE = 3  # no estimate before this many filings: the first one incl
 
 
 def estimate_remaining(gaps, remaining):
-    """Seconds left, from the recent time per filing.  None if there is not enough to go on yet."""
+    """
+    Seconds left, from the recent time per filing.  None if there is not enough to go on yet.
+    """
     if len(gaps) < MIN_FOR_ESTIMATE or remaining <= 0:
         return None
+
     return sum(gaps) / len(gaps) * remaining
 
 
@@ -34,14 +44,18 @@ def progress_line(done, total, filing_id, error, since_last, elapsed, dry_run=Fa
     done_word = "checked" if dry_run else "saved"
     result = f"FAILED filing {filing_id}: {error}" if error else f"{done_word} filing {filing_id}"
     line = f"[{done}/{total}] {result}  (took {format_duration(since_last)}, {format_duration(elapsed)} so far"
+
     if left is not None:
         finish = (now or datetime.now()) + timedelta(seconds=left)
         line += f", about {format_duration(left)} left, done around {finish:%H:%M}"
+
     return line + ")"
 
 
 class Tee:
-    """Sends what is written to several streams, so a run prints to the screen and to the log file."""
+    """
+    Sends what is written to several streams, so a run prints to the screen and to the log file.
+    """
 
     def __init__(self, *streams):
         self.streams = streams

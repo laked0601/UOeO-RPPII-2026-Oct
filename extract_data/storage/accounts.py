@@ -43,22 +43,30 @@ UPLOAD_WORKERS = 2  # uploads running at once
 
 
 def local_paths(work_dir, filing_id):
-    """Where a filing's PDF and text file are kept on this computer."""
+    """
+    Where a filing's PDF and text file are kept on this computer.
+    """
     return work_dir / f"{filing_id}.pdf", work_dir / f"{filing_id}.txt"
 
 
 def worth_retrying(error):
-    """A network problem, a server error or "too many requests" may pass; "not found" and the like will not."""
+    """
+    A network problem, a server error or "too many requests" may pass; "not found" and the like will not.
+    """
     return not isinstance(error, HTTPError) or error.code >= 500 or error.code == 429
 
 
 def fetch(url):
-    """The bytes at `url`, trying again after a network problem."""
+    """
+    The bytes at `url`, trying again after a network problem.
+    """
     request = Request(url, headers={"User-Agent": "Mozilla/5.0"})  # Companies House refuses requests with no browser
+
     for attempt in range(1, DOWNLOAD_TRIES + 1):
         try:
             with urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
                 return response.read()
+
         except OSError as error:  # includes URLError, HTTPError and timeouts
             if attempt == DOWNLOAD_TRIES or not worth_retrying(error):
                 raise
@@ -66,16 +74,21 @@ def fetch(url):
 
 
 def download_pdf(url, path):
-    """Save the file at `url` to `path`."""
+    """
+    Save the file at `url` to `path`.
+    """
     url = urljoin(SITE, url)
     data = fetch(url)
+
     if not data.startswith(b"%PDF"):
         raise ValueError(f"{url} did not return a PDF")
     Path(path).write_bytes(data)
 
 
 def ocr_to_text(pdf_path, txt_path, cache_dir, dpi=DEFAULT_DPI):
-    """Read the PDF (text layer or OCR) and write its text, page by page, to `txt_path`."""
+    """
+    Read the PDF (text layer or OCR) and write its text, page by page, to `txt_path`.
+    """
     write_text_dump(ocr_pdf(pdf_path, cache_dir, dpi=dpi), Path(txt_path))
 
 
@@ -91,19 +104,24 @@ def record_filing(connection, filing_history_id):
     connection is checked first and opened again if it was dropped.
     """
     connection.ping(reconnect=True, attempts=RECONNECT_TRIES, delay=RETRY_WAIT)
+
     try:
         with connection.cursor() as cursor:
             cursor.execute(INSERT_RECORD, (filing_history_id,))
+
     except IntegrityError as error:
         if error.errno != errorcode.ER_DUP_ENTRY:
             raise
         connection.rollback()
+
     else:
         connection.commit()
 
 
 def upload_filing(client, filing_id, pdf_path, txt_path):
-    """Upload a filing's PDF and text file to the bucket."""
+    """
+    Upload a filing's PDF and text file to the bucket.
+    """
     pdf_key, txt_key = ionos.object_keys(filing_id)  # the keys follow from the id, so the row needs no path
     ionos.upload_file(client, pdf_path, pdf_key, "application/pdf")
     ionos.upload_file(client, txt_path, txt_key, "text/plain; charset=utf-8")
@@ -116,11 +134,14 @@ def record_uploaded(uploading, connection, wait):
     """
     while uploading and (wait or uploading[0][1].done()):
         filing_id, upload = uploading.popleft()
+
         try:
             upload.result()
             record_filing(connection, filing_id)
+
         except Exception as error:  # one bad filing must not stop the rest
             yield filing_id, error
+
         else:
             yield filing_id, None
 
@@ -142,27 +163,36 @@ def save_filings(filings, work_dir, client, connection, dpi=DEFAULT_DPI, dry_run
         def start_downloads():
             while len(downloading) < PREFETCH:
                 item = next(waiting, None)
+
                 if item is None:
                     return
+
                 filing_id, url = item
                 pdf_path = local_paths(work_dir, filing_id)[0]
                 downloading.append((filing_id, downloads.submit(download_pdf, url, pdf_path)))
 
         start_downloads()
+
         while downloading:
             filing_id, download = downloading.popleft()
             start_downloads()  # keep the next downloads going during the OCR
             pdf_path, txt_path = local_paths(work_dir, filing_id)
+
             try:
                 download.result()
                 ocr_to_text(pdf_path, txt_path, work_dir / "output", dpi)
+
             except Exception as error:
                 yield filing_id, error
+
             else:
                 if dry_run:
                     yield filing_id, None
+
                 else:
                     upload = uploads.submit(upload_filing, client, filing_id, pdf_path, txt_path)
                     uploading.append((filing_id, upload))
+
             yield from record_uploaded(uploading, connection, wait=False)
+
         yield from record_uploaded(uploading, connection, wait=True)

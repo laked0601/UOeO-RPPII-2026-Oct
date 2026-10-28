@@ -96,16 +96,22 @@ STANDARD_LABELS = {
                              "total comprehensive (loss)/profit for the period"],
     "dividends_paid": ["dividends paid", "dividends"],
 }
+
 STANDARD_LOOKUP = {variant: name for name, variants in STANDARD_LABELS.items() for variant in variants}
 
 
 def normalise_label(label):
-    """A label tidied for matching: lower case, no '(Note 2)', single spaces, no space around '/'."""
+    """
+    A label tidied for matching: lower case, no '(Note 2)', single spaces, no space around '/'.
+    """
     text = NOTE_REF.sub("", label).lower().replace("’", "'")
     text = re.sub(r"\s*/\s*", "/", re.sub(r"\s+", " ", text))  # "surplus / (deficit)" -> "surplus/(deficit)"
+
     return text.strip(" :.")
 
 
 def standard_label(label):
-    """Map a printed label to a standard name ('total_equity'), or None."""
+    """
+    Map a printed label to a standard name ('total_equity'), or None.
+    """
     return STANDARD_LOOKUP.get(normalise_label(label))

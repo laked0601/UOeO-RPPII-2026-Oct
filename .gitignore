@@ -228,3 +228,6 @@ extract_data/pdf_files/*.pdf
 
 # Run logs
 logs/
+
+# IDE state that differs for everyone and causes merge conflicts
+.idea/workspace.xml

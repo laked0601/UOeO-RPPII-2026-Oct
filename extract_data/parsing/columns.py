@@ -1,8 +1,9 @@
 """
 The columns of a table, worked out from its header rows.
 
-A header row is a list of (text, x_left, x_right).  `build_columns` turns the stacked header rows
-("Consolidated" / "2025" / "$ million") into one description per column, and `column_base` /
+A header row is a list of (text, x_left, x_right).
+`build_columns` turns the stacked header rows ("Consolidated" / "2025" / "$ million") into one description per column.
+`column_base` gives each column a key for its period end date (or year, or text).
 `column_qualifier` give each column the key its figures are stored under.
 """
 
@@ -61,7 +62,9 @@ def target_columns(centre, centres):
 
 
 def positioned_columns(header_rows, base):
-    """Columns built from the header pieces: each piece joins its nearest column."""
+    """
+    Columns built from the header pieces: each piece joins its nearest column.
+    """
     centres = [(p[1] + p[2]) / 2 for p in base]
     parts = [[] for _ in base]
     for r in header_rows:  # includes one-piece lines such as "Plant and"
@@ -117,7 +120,9 @@ def column_base(column, index, period_end):
 
 
 def column_qualifier(column):
-    """What distinguishes two columns for the same date: 'consolidated' vs 'llp'."""
+    """
+    What distinguishes two columns for the same date: 'consolidated' vs 'llp'.
+    """
     text = re.sub(r"\b(?:19|20)\d{2}\b", " ", column["text"])
     text = STATUS.sub(" ", text)
     text = UNITS.sub(" ", text).replace(".", "")  # OCR reads "LLP" as "L.Lp"

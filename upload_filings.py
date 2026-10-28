@@ -2,7 +2,7 @@
 Save the accounts PDFs listed in the database: download, OCR to text, upload to the IONOS
 bucket and log each one in `companies_house_accounts`.
 
-    python upload_filings.py --limit 3        try it on three filings first
+    python upload_filings.py --limit 3        limit to only filling the next three PDFs
     python upload_filings.py                  everything not saved yet
     python upload_filings.py --since 2020 --newest-first   2020 onwards, newest first
     python upload_filings.py --dry-run --limit 3   download and OCR only, no upload or database writes
@@ -30,36 +30,57 @@ from extract_data.runlog import RECENT, Tee, estimate_remaining, format_duration
 from extract_data.storage import database, ionos
 from extract_data.storage.accounts import save_filings
 
+MAX_FAILURES_SHOWN = 20  # a run of 100,000 filings must not end by printing thousands of ids
+
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Download, OCR and upload Companies House accounts PDFs.")
-    parser.add_argument("--limit", type=int,
-                        help=f"most filings to do this run (default and highest: {database.MAX_PER_RUN})")
-    parser.add_argument("--min-pages", type=int, default=database.MIN_PAGES,
-                        help="skip filings with fewer pages than this (default: %(default)s)")
-    parser.add_argument("--since", type=int, metavar="YEAR",
-                        help="skip filings from before this year, for example --since 2020")
-    parser.add_argument("--newest-first", action="store_true",
-                        help="do the most recently filed accounts first (default: by filing id)")
-    parser.add_argument("--log-dir", default="logs", help="folder for the log of this run (default: %(default)s)")
-    parser.add_argument("--work-dir", default="downloads", help="folder for the local PDFs, text and OCR cache")
+    parser = argparse.ArgumentParser(
+        description="Download, OCR and upload Companies House accounts PDFs.")
+
+    parser.add_argument(
+        "--limit", type=int, help=f"default and highest: {database.MAX_PER_RUN})")
+
+    parser.add_argument(
+        "--min-pages", type=int, default=database.MIN_PAGES, help="skip filings with fewer pages, default: 2")
+
+    parser.add_argument(
+        "--since", type=int, metavar="YEAR", help="skip filings from before this year")
+
+    parser.add_argument(
+        "--newest-first", action="store_true", help="do the most recently filed accounts first")
+
+    parser.add_argument(
+        "--log-dir", default="logs", help="folder for the log of this run")
+
+    parser.add_argument(
+        "--work-dir", default="downloads", help="folder for the local PDFs, text and OCR cache")
+
     add_ocr_options(parser)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="download and OCR only: no bucket keys needed, nothing uploaded, no database rows")
+
+    parser.add_argument(
+        "--dry-run", action="store_true", help="download and OCR only, nothing uploaded")
+
     return parser
 
 
 def run(args, results):
-    """Do the work of one run.  Each finished filing is added to `results` as (filing id, error or None)."""
+    """
+    Do the work of one run.
+    Each finished filing is added to `results` as (filing id, error or None).
+    """
     client = None if args.dry_run else ionos.make_client()  # fail early if the bucket keys are missing
     connection = database.connect()
+
     try:
         filings = database.pending_filings(connection, args.limit, args.min_pages, args.since, args.newest_first)
         print(f"{len(filings)} filing(s) to save")
+
         if len(filings) == database.MAX_PER_RUN:
             print(f"That is the most one run does ({database.MAX_PER_RUN}); run again for the rest.")
+
         started = previous = time.monotonic()
         gaps = deque(maxlen=RECENT)
+
         for filing_id, error in save_filings(filings, args.work_dir, client, connection, args.dpi, args.dry_run):
             now = time.monotonic()
             gaps.append(now - previous)
@@ -68,11 +89,13 @@ def run(args, results):
             print(progress_line(len(results), len(filings), filing_id, error, now - previous, now - started,
                                 args.dry_run, left))
             previous = now
+
         if results:
             total = time.monotonic() - started
             failed = sum(error is not None for _, error in results)
             print(f"Finished {len(results)} filing(s) in {format_duration(total)} "
                   f"({format_duration(total / len(results))} each), {failed} failed")
+
     finally:
         connection.close()
 
@@ -84,16 +107,21 @@ def main(argv=None):
     log_dir.mkdir(parents=True, exist_ok=True)
     running = log_dir / log_name(started)
     results = []
+
     try:
         with open(running, "w", encoding="utf-8") as log, redirect_stdout(Tee(sys.stdout, log)):
             print(f"Started {started:%Y-%m-%d %H:%M:%S}  options: {' '.join(sys.argv[1:]) or '(none)'}")
             with gpu.setting(not args.cpu):
                 run(args, results)
+
     finally:  # also when the run is stopped (Ctrl+C) or fails part way
         failed = [filing_id for filing_id, error in results if error is not None]
         running.replace(log_dir / log_name(started, len(results), len(failed)))
+
     if failed:
-        sys.exit(f"{len(failed)} filing(s) failed: {failed}")
+        shown = ", ".join(str(filing_id) for filing_id in failed[:MAX_FAILURES_SHOWN])
+        more = " ..." if len(failed) > MAX_FAILURES_SHOWN else ""
+        sys.exit(f"{len(failed)} filing(s) failed (the log has the reason for each): {shown}{more}")
 
 
 if __name__ == "__main__":

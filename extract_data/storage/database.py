@@ -31,6 +31,7 @@ PENDING_FILINGS = """
       AND cha.id IS NULL
       AND (fh.document_page_count IS NULL OR fh.document_page_count >= %s)
 """.format(types=", ".join(["%s"] * len(ACCOUNT_TYPES)))
+
 SINCE_CLAUSE = "      AND (fh.`date` IS NULL OR fh.`date` >= %s)\n"  # a filing with no date is kept
 ORDER_BY_ID = "    ORDER BY fh.id"
 ORDER_NEWEST_FIRST = "    ORDER BY fh.`date` DESC, fh.id DESC"
@@ -38,20 +39,28 @@ LIMIT_CLAUSE = "\n    LIMIT %s"
 
 
 def build_query(since_year=None, newest_first=False):
-    """The query for the filings still to save: from `since_year` on if given, newest first if asked."""
+    """
+    The query for the filings still to save: from `since_year` on if given, newest first if asked.
+    """
     query = PENDING_FILINGS
+
     if since_year:
         query += SINCE_CLAUSE
+
     return query + (ORDER_NEWEST_FIRST if newest_first else ORDER_BY_ID) + LIMIT_CLAUSE
 
 
 def connect():
-    """Open a connection using the settings in RPP2_CONNSTR."""
+    """
+    Open a connection using the settings in RPP2_CONNSTR.
+    """
     try:
         settings = json.loads(os.environ.get(CONNSTR_VAR, ""))
+
     except json.JSONDecodeError:
         raise RuntimeError(f"Set the environment variable {CONNSTR_VAR} to the database settings as JSON "
                            '(host, port, user, password, database, ssl_verify_cert, ssl_ca).') from None
+
     return mysql.connector.connect(**settings)
 
 
@@ -62,11 +71,14 @@ def pending_filings(connection, limit=None, min_pages=MIN_PAGES, since_year=None
     them, and never more than MAX_PER_RUN, which is also the number when no limit is given.
     """
     parameters = [*ACCOUNT_TYPES, min_pages]
+
     if since_year:
         parameters.append(f"{since_year}-01-01")
+
     parameters.append(min(limit or MAX_PER_RUN, MAX_PER_RUN))
     cursor = connection.cursor()
     cursor.execute(build_query(since_year, newest_first), tuple(parameters))
     rows = cursor.fetchall()
     cursor.close()
+
     return rows

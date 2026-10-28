@@ -14,19 +14,26 @@ from extract_data.parsing.figures import DASH, UNREADABLE, to_number
 # and first words of a short line that finishes the label above it ("BEFORE TAXATION").
 CONTINUES = {"and", "or", "of", "less", "than", "within", "due", "in", "to", "the", "a", "an", "for", "from",
              "after", "before", "on", "at", "by", "with", "current", "net", "non", "gross"}
+
 TAIL_START = {"before", "after", "for", "the", "of", "per", "to"}
+
 # A figure with thousands separators, "124,556" or "(213, 135)" (the OCR may add a space).
 THOUSANDS_FIGURE = r"\(?-?\d{1,3}(?:[.,]\s?\d{3})+\)?"
+
 # Figures at the end of a text fragment: "At 31 March 2025 124,556 7,667." or
 # "Cost of sales (213, 135)".  The OCR sometimes merges them into the label.
 TRAILING_NUMBERS = re.compile(rf"^(.*?\S)((?:\s+{THOUSANDS_FIGURE}[.,]?)+)$")
+
 # Two or more figures in one fragment, and a single figure within such a run.
 NUMBER_IN_RUN = r"\(?-?\d{1,3}(?:[.,;:]\s?\d{3})+\)?|\(?-?\d+\)?"
+
 NUMBER_RUN = re.compile(rf"^(?:{NUMBER_IN_RUN})(?:\s+(?:{NUMBER_IN_RUN}))+$")  # figures separated by spaces
 
 
 def fragments_of(item):
-    """The [text, span] pieces of one OCR row, a list of (x_left, text, x_right)."""
+    """
+    The [text, span] pieces of one OCR row, a list of (x_left, text, x_right).
+    """
     return [[text.strip(), (left, right)] for left, text, right in item if text.strip()]
 
 
@@ -45,13 +52,17 @@ def clean_pieces(pieces):
 
 
 def sub_span(span, start, end, length):
-    """The horizontal extent of characters start..end of a text of `length` characters printed across `span`."""
+    """
+    The horizontal extent of characters start..end of a text of `length` characters printed across `span`.
+    """
     width = span[1] - span[0]
     return span[0] + width * start / length, span[0] + width * end / length
 
 
 def split_number_runs(pieces):
-    """Several figures run together in one fragment, "(11,756,310) (12,027,711)": make each its own piece."""
+    """
+    Several figures run together in one fragment, "(11,756,310) (12,027,711)": make each its own piece.
+    """
     split = []
     for text, span in pieces:
         if NUMBER_RUN.match(text):
@@ -69,16 +80,20 @@ def pop_trailing_figures(pieces):
     A figure that is printed but cannot be read gives a value of None.
     """
     values, tokens, spans = [], [], []
+
     while pieces:
         text, span = pieces[-1]
         number = to_number(text)
         unreadable = number is None and len(text) >= 5 and UNREADABLE.match(text) and re.search(r"[.,]", text)
+
         if number is None and not unreadable:
             break
+
         pieces.pop()
         values.insert(0, None if unreadable else number)
         tokens.insert(0, text.strip())
         spans.insert(0, span)
+
     return values, tokens, spans
 
 
@@ -88,11 +103,14 @@ def pop_figures_merged_into_label(pieces, values, tokens, spans):
     Split them off the last piece and put them in front of `values`, `tokens` and `spans`.
     """
     m = TRAILING_NUMBERS.match(pieces[-1][0]) if pieces else None
+
     if not m:
         return
+
     text, span = pieces.pop()
     pieces.append([m.group(1), sub_span(span, 0, len(m.group(1)), len(text))])
     found = re.finditer(THOUSANDS_FIGURE, m.group(2))
+
     for number in reversed(list(found)):
         start, end = m.start(2) + number.start(), m.start(2) + number.end()
         values.insert(0, to_number(number.group(0)))
@@ -109,6 +127,7 @@ def take_figures(pieces):
     """
     values, tokens, spans = pop_trailing_figures(pieces)
     pop_figures_merged_into_label(pieces, values, tokens, spans)
+
     return values, tokens, spans
 
 
@@ -118,6 +137,7 @@ def finishes_label_above(previous, row):
     ("SURPLUS ... ON ORDINARY ACTIVITIES  64,364" / "BEFORE TAXATION").
     """
     first_word = row["label"].split(" ")[0].lower() if row["label"] else ""
+
     return bool(previous and previous["values"] and not row["values"] and len(row["frags"]) == 1
                 and len(row["label"]) <= 30 and first_word in TAIL_START
                 and not row["label"].endswith((".", ":")))
@@ -133,13 +153,17 @@ def continues_label_above(previous, row):
     if not (previous and not previous["values"] and previous["label"]
             and (row["values"] or len(row["frags"]) == 1)):
         return False
+
     last_word = re.sub(r"\W", "", previous["label"].split(" ")[-1].lower())
+
     return (row["label"][:1].islower() or last_word in CONTINUES) and not previous["label"].endswith(
         ":")  # "Represented by:" is a heading
 
 
 def joined_text(first, second):
-    """The text pieces, their positions and the label of `first` followed by those of `second`."""
+    """
+    The text pieces, their positions and the label of `first` followed by those of `second`.
+    """
     return {"frags": first["frags"] + second["frags"], "fx": first["fx"] + second["fx"],
             "label": first["label"] + " " + second["label"]}
 
@@ -157,24 +181,29 @@ def read_rows(source):
     A label that wrapped onto a second line is re-joined.
     """
     rows = []
+
     for item in source:
         pieces = split_number_runs(clean_pieces(fragments_of(item)))
         values, tokens, spans = take_figures(pieces)
         texts = [t for t, _ in pieces]
         row = {"frags": texts, "fx": [s for _, s in pieces], "label": " ".join(texts),
                "values": values, "tokens": tokens, "vx": spans}
-
         previous = rows[-1] if rows else None
+
         if finishes_label_above(previous, row):
             previous.update(joined_text(previous, row))  # the short line finishes the label above it
             continue
+
         if continues_label_above(previous, row):
             rows.pop()
             row.update(joined_text(previous, row))  # keeps this row's figures
         rows.append(row)
+
     return rows
 
 
 def to_lines(page):
-    """The rows of a page as plain text lines: the fragments of each row joined by two spaces."""
+    """
+    The rows of a page as plain text lines: the fragments of each row joined by two spaces.
+    """
     return ["  ".join(fragment[1] for fragment in row) for row in page]

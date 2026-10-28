@@ -24,7 +24,9 @@ NUMBER_PREFIXES = {"AC", "CE", "CS", "FC", "FE", "GE", "GS", "IC", "IP", "LP", "
 
 
 def look_alike(number):
-    """A company number with the characters the OCR confuses made the same (I, l and 1; O and 0)."""
+    """
+    A company number with the characters the OCR confuses made the same (I, l and 1; O and 0).
+    """
     return re.sub(r"[Il1]", "I", number.upper()).replace("O", "0")
 
 
@@ -99,7 +101,9 @@ def find_company_number(head, file_number, warnings):
 
 
 def filing_details(filing):
-    """The company number, type ("aa" = annual accounts) and date given in the file name, if any."""
+    """
+    The company number, type ("aa" = annual accounts) and date given in the file name, if any.
+    """
     if not filing:
         return None
     return {"company_number": filing.group("number"), "type": filing.group("type"), "date": filing.group("date")}
@@ -110,7 +114,9 @@ def iso_date(date):
 
 
 def extract_company(pages_lines, tables, source_file, warnings):
-    """Company number, period end and approval date; also the filing details from the file name."""
+    """
+    Company number, period end and approval date; also the filing details from the file name.
+    """
     head = " ".join(" ".join(lines) for lines in pages_lines[:3])
     all_lines = [line for lines in pages_lines for line in lines]
     everything = " ".join(all_lines)
@@ -126,4 +132,5 @@ def extract_company(pages_lines, tables, source_file, warnings):
 
     company = {"registration_number": number, "period_end": iso_date(period_end),
                "approval_date": iso_date(approval)}
+
     return company, filing_details(filing), period_end

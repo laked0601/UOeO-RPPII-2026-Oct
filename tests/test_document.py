@@ -10,27 +10,16 @@ two real filings, so the tests run without repeating the slow OCR step:
 import copy
 import json
 from datetime import date
-from pathlib import Path
 
 import pytest
 
 from extract_data.parsing.document import extract_document
 from extract_data.parsing.figures import detect_units, find_dates, to_number
-
-FIXTURES = Path(__file__).parent / "fixtures"
-
-
-def load(stem):
-    pages = json.loads((FIXTURES / f"{stem}.ocr.json").read_text(encoding="utf-8"))
-    return extract_document(pages, f"{stem}.pdf"), pages
+from support import extract, load_pages, row
 
 
 def statement(result, name):
     return next(s for s in result["statements"] if s["name"] == name)
-
-
-def row(table, label):
-    return next(r for r in table["rows"] if r["label"] == label)
 
 
 # ---------------------------------------------------------------- helpers
@@ -63,7 +52,7 @@ def test_detect_units_accepts_ocr_s_for_dollar():
 
 
 def test_shell_company_details():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     company = result["company"]
     assert company["registration_number"] == "04366849"
     assert company["period_end"] == "2025-12-31"
@@ -73,27 +62,27 @@ def test_shell_company_details():
 
 
 def test_shell_finds_all_statements():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     assert [s["name"] for s in result["statements"]] == [
         "Statement of income", "Statement of comprehensive income",
         "Statement of retained earnings", "Balance sheet"]
 
 
 def test_shell_columns_come_from_dates_not_years():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     columns = statement(result, "Balance sheet")["columns"]
     assert [(c["key"], c["status"]) for c in columns] == [
         ("2025-12-31", "Unaudited"), ("2024-12-31", "Audited")]
 
 
 def test_shell_second_statement_on_page_reuses_columns():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     columns = statement(result, "Statement of retained earnings")["columns"]
     assert [c["key"] for c in columns] == ["2025-12-31", "2024-12-31"]
 
 
 def test_shell_balance_sheet_figures_and_totals():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     sheet = statement(result, "Balance sheet")
     assert row(sheet, "Total assets")["values"] == {"2025-12-31": 267083, "2024-12-31": 265047}
     assert row(sheet, "Total assets")["kind"] == "total"
@@ -103,14 +92,14 @@ def test_shell_balance_sheet_figures_and_totals():
 
 
 def test_shell_dropped_figure_is_assumed_nil_when_totals_need_it():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     cash = row(statement(result, "Balance sheet"), "Cash and cash equivalents")
     assert cash["values"] == {"2025-12-31": 0, "2024-12-31": 0}
     assert "no_figures_read" in cash["flags"]
 
 
 def test_shell_income_statement_negatives_and_totals():
-    result, _ = load("companies_house_document")
+    result = extract("companies_house_document")
     income = statement(result, "Statement of income")
     assert row(income, "Administrative expenses")["values"]["2025-12-31"] == -401
     assert row(income, "Income before taxation")["kind"] == "total"
@@ -118,7 +107,7 @@ def test_shell_income_statement_negatives_and_totals():
 
 
 def test_ocr_digit_error_in_a_total_is_reported():
-    result, pages = load("companies_house_document")
+    pages = load_pages("companies_house_document")
     broken = copy.deepcopy(pages)
     for row in broken[2]:
         if row[0][1] == "Total equity":
@@ -131,7 +120,7 @@ def test_ocr_digit_error_in_a_total_is_reported():
 
 
 def test_small_company_figures_and_company_number():
-    result, _ = load("11508952_aa_2025-09-23")
+    result = extract("11508952_aa_2025-09-23")
     sheet = statement(result, "Balance sheet")
     assert row(sheet, "Net assets")["values"] == {"2025-08-31": 20326, "2024-08-31": 20169}
     assert row(sheet, "Total equity")["values"] == {"2025-08-31": 20326, "2024-08-31": 20169}
@@ -142,7 +131,7 @@ def test_small_company_figures_and_company_number():
 
 
 def test_small_company_gets_tables_and_filing_details():
-    result, _ = load("11508952_aa_2025-09-23")
+    result = extract("11508952_aa_2025-09-23")
     assert result["filing"] == {"company_number": "11508952", "type": "aa", "date": "2025-09-23"}
     sheet = statement(result, "Balance sheet")
     assert [c["key"] for c in sheet["columns"]] == ["2025-08-31", "2024-08-31"]  # year columns -> period end dates
@@ -153,7 +142,7 @@ def test_small_company_gets_tables_and_filing_details():
 
 
 def test_small_company_note_tables():
-    result, _ = load("11508952_aa_2025-09-23")
+    result = extract("11508952_aa_2025-09-23")
     names = [t["name"] for t in result["note_tables"]]
     assert names == ["Employees", "Tangible fixed assets",
                      "Creditors: amounts falling due within one year",
@@ -167,13 +156,13 @@ def test_small_company_note_tables():
 
 
 def test_contents_page_is_not_treated_as_a_table():
-    result, _ = load("11508952_aa_2025-09-23")
+    result = extract("11508952_aa_2025-09-23")
     assert all(t["page"] != 2 for t in result["statements"] + result["note_tables"])
 
 
 @pytest.mark.parametrize("stem", ["11508952_aa_2025-09-23", "companies_house_document"])
 def test_output_is_json_serialisable(stem):
-    result, _ = load(stem)
+    result = extract(stem)
     json.dumps(result)
 
 

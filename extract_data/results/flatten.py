@@ -64,18 +64,24 @@ def to_facts(result):
     tables = result.get("statements", []) + result.get("note_tables", [])
     for table_number, table in enumerate(tables, start=1):
         columns = {c["key"]: c for c in table["columns"]}
+
         for row_number, row in enumerate(table["rows"], start=1):
+
             for key, value in row["values"].items():
                 if value is not None:  # a blank cell: no figure to record
                     where = {"table_number": table_number, "row_number": row_number}
                     facts.append({**document, **where, **figure_fields(table, row, columns[key], key, value)})
+
     return facts
 
 
 def document_fields(result):
-    """The fields every fact of a filing shares: which document, company, period and units."""
+    """
+    The fields every fact of a filing shares: which document, company, period and units.
+    """
     company = result.get("company", {})
     filing = result.get("filing") or {}
+
     return {
         "source_file": result.get("source_file"),
         "filing_type": filing.get("type"),
@@ -88,7 +94,9 @@ def document_fields(result):
 
 
 def figure_fields(table, row, column, key, value):
-    """The fields of one figure: its table, row and column details, the value and any flags."""
+    """
+    The fields of one figure: its table, row and column details, the value and any flags.
+    """
     return {
         "table_kind": table["kind"],
         "table_name": table["name"],
@@ -116,8 +124,10 @@ def write_facts(facts, out_dir, stem):
     imported with an "empty string as NULL" option).
     """
     csv_path = out_dir / f"{stem}.facts.csv"
+
     with open(csv_path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=FACT_COLUMNS)
         writer.writeheader()
         writer.writerows(facts)
+
     return csv_path

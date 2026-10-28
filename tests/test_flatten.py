@@ -3,22 +3,14 @@ Tests for extract_data.flatten: the one-row-per-figure output for SQL.
 """
 
 import csv
-import json
-from pathlib import Path
 
 import pytest
 
-from extract_data.parsing.document import extract_document
 from extract_data.results.flatten import FACT_COLUMNS, facts_flags, to_facts, write_facts
+from support import extract
 
-FIXTURES = Path(__file__).parent / "fixtures"
 NAMES = ["11508952_aa_2025-09-23", "companies_house_document", "05421996_aa_2026-05-26",
          "crown_overseas_abbreviated_2015", "epic_im_llp_group_2025"]
-
-
-def extract(name):
-    pages = json.loads((FIXTURES / f"{name}.ocr.json").read_text(encoding="utf-8"))
-    return extract_document(pages, f"{name}.pdf")
 
 
 def find(facts, **wanted):

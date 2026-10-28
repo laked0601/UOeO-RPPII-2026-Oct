@@ -7,7 +7,7 @@ The page reader is replaced by a fake that returns prepared rows, so no OCR runs
 import json
 
 from extract_data.rescan import load_tried, rescan_flagged_pages, tried_path
-from rowtext import text_row
+from support import text_row
 
 BAD = [text_row(line) for line in [
     "Acme Limited", "BALANCE SHEET", "2025  2024", "Fixed assets  100  90", "Current assets  50  40",

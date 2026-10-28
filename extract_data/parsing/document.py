@@ -58,12 +58,16 @@ def check_tables(tables, warnings, flagged_pages):
     """
     for table in tables:
         before = len(warnings)
+
         for column in table["columns"]:
             check_column(table, column["key"], warnings)
+
         if flagged_pages is not None and len(warnings) > before:
             flagged_pages.add(table["page"])
+
         for row in table["rows"]:
             row.pop("_blank", None)  # working data, not part of the output
+
     if not any(t["kind"] == "statement" for t in tables):
         warnings.append("no financial statements found")
 
@@ -94,15 +98,18 @@ def extract_document(pages, source_file="", flagged_pages=None):
     # Step 3: place the figures, then step 4: verify the totals column by column.
     tables = [t for t in (finalise_table(s, period_end) for s in scanned) if t]
     check_tables(tables, warnings, flagged_pages)
+
     company["currency"], company["unit_multiplier"], company["currency_assumed"] = \
         most_common_currency(tables, pages_lines)
 
     result = {"source_file": source_file}
     if filing:
         result["filing"] = filing
+
     result["company"] = company
 
     result["statements"] = [t for t in tables if t["kind"] == "statement"]
     result["note_tables"] = [t for t in tables if t["kind"] == "note"]
     result["warnings"] = warnings
+
     return result

@@ -50,12 +50,16 @@ class ColumnChecker:
         self.section = None
 
     def figure(self, row):
-        """The row's figure in this column; a cell the page left blank counts as 0."""
+        """
+        The row's figure in this column; a cell the page left blank counts as 0.
+        """
         value = row["values"].get(self.key)
         return 0 if value is None and self.key in row.get("_blank", ()) else value
 
     def matches(self, value, group):
-        """Does `value` equal the sum of the rows in `group`?"""
+        """
+        Does `value` equal the sum of the rows in `group`?
+        """
         if not group:
             return False
         figures = [self.figure(r) for r in group]
@@ -71,43 +75,58 @@ class ColumnChecker:
 
     @staticmethod
     def replace(group, members, row):
-        """`group` with the rows in `members` replaced by `row`."""
+        """
+        `group` with the rows in `members` replaced by `row`.
+        """
         return [r for r in group if not any(r is m for m in members)] + [row]
 
     def groups(self):
-        """The candidate groups of rows a total may equal."""
+        """
+        The candidate groups of rows a total may equal.
+        """
         first = self.table["rows"][0]
         # Tax reconciliations start from a base figure ("Surplus before tax") that is not part of the sum.
         after_first = [r for r in self.block if r is not first] if first in self.block else []
         return (self.in_section, self.fresh, self.block, after_first)
 
     def accept_total(self, row, members, subtotal, value):
-        """A verified total replaces the rows it summed, so a later total can build on it."""
+        """
+        A verified total replaces the rows it summed, so a later total can build on it.
+        """
         self.in_section = self.replace(self.in_section, members, row)
         self.block = [row] if members is self.block else self.replace(self.block, members, row)
+
         if subtotal:
             self.fresh = self.replace(self.fresh, members, row)
+
         else:
             row["kind"] = "total"
             self.totals.append(value)
             self.fresh = []
 
     def find_members(self, value, groups):
-        """The group of rows `value` is the sum of, [] if it equals an earlier total, else None."""
+        """
+        The group of rows `value` is the sum of, [] if it equals an earlier total, else None.
+        """
         members = next((g for g in groups if self.matches(value, g)), None)
+
         if members is None and any(same(value, t) for t in self.totals):
             return []
         return members
 
     def worth_reporting(self, subtotal):
-        """Is there enough above a total that does not add up for the mismatch to mean something?"""
+        """
+        Is there enough above a total that does not add up for the mismatch to mean something?
+        """
         if subtotal:
             return len(self.in_section) >= 2
+
         return bool(self.in_section or self.fresh or self.block or self.totals)
 
     def check_row(self, row):
         if row["section"] != self.section:
             self.section, self.in_section = row["section"], []
+
         value, label = self.figure(row), row["label"]
         subtotal = row["kind"] == "subtotal"
         strong = subtotal or bool(STRONG_TOTAL.match(label))
@@ -115,13 +134,16 @@ class ColumnChecker:
         if value is not None and (strong or WEAK_TOTAL.match(label)):
             groups = self.groups()
             members = self.find_members(value, groups)
+
             if members is not None:
                 self.accept_total(row, members, subtotal, value)
                 return
+
             if strong and self.worth_reporting(subtotal):
                 sums = [sum(self.figure(r) or 0 for r in g) for g in groups if g]
                 self.warnings.append(mismatch_warning(self.table, self.key, row, value, sums))
                 return
+
         self.in_section.append(row)
         self.fresh.append(row)
         self.block.append(row)
@@ -145,5 +167,6 @@ def check_column(table, key, warnings):
     and taking it as nil makes the total add up, it is taken as nil.
     """
     checker = ColumnChecker(table, key, warnings)
+
     for row in table["rows"]:
         checker.check_row(row)

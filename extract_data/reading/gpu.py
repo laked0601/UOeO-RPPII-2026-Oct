@@ -28,25 +28,33 @@ def available():
         import onnxruntime
         if "CUDAExecutionProvider" not in onnxruntime.get_available_providers():
             return False
+
         if hasattr(onnxruntime, "preload_dlls"):
             onnxruntime.preload_dlls()  # finds the CUDA libraries installed as pip packages
         return True
+
     except Exception:  # missing libraries, driver problems, ...
         return False
 
 
 def in_use():
-    """True if the OCR will run on the GPU: it is enabled (no --cpu) and available."""
+    """
+    True if the OCR will run on the GPU: it is enabled (no --cpu) and available.
+    """
     return enabled and available()
 
 
 @contextmanager
 def setting(use_gpu):
-    """Allow (or, with False, forbid) the GPU inside a `with` block; the old setting comes back afterwards."""
+    """
+    Allow (or, with False, forbid) the GPU inside a `with` block; the old setting comes back afterwards.
+    """
     global enabled
     previous, enabled = enabled, use_gpu
+
     try:
         yield
+
     finally:
         enabled = previous
 
@@ -63,16 +71,20 @@ def cuda_config():
     if not in_use():
         yield
         return
+
     original = rapid_ocr_api.read_yaml
 
     def gpu_config(path):
         config = original(path)
+
         for model in ("Det", "Cls", "Rec"):
             config[model]["use_cuda"] = True
+
         return config
 
     rapid_ocr_api.read_yaml = gpu_config
     try:
         yield
+
     finally:
         rapid_ocr_api.read_yaml = original

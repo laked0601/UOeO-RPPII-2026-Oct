@@ -82,76 +82,103 @@ SECTION_RULES = [
     (re.compile(r"members", re.I), re.compile(r"^other amounts$", re.I), "loans_due_to_members"),
 ]
 
-NOTE_SECTIONS = {"cost": "tangible_cost", "depreciation": "accumulated_depreciation",
-                 "nbv": "net_book_value"}
-
 
 def entity_of(text):
-    """'group' for consolidated accounts, 'company' for the company/LLP itself, else None."""
+    """
+    'group' for consolidated accounts, 'company' for the company/LLP itself, else None.
+    """
     text = (text or "").lower()
     if "consolidated" in text or re.search(r"\bgroup\b", text):
         return "group"
+
     if re.search(r"\b(llp|company|parent)\b", text):
         return "company"
+
     return None
 
 
 def blank_period():
-    """A period with every heading present and null."""
+    """
+    A period with every heading present and null.
+    """
     return {"status": None, **{group: {field: None for field in fields} for group, fields in SCHEMA.items()}}
 
 
 def note_section(section):
-    """Which part of the tangible assets note a section heading is: cost, depreciation or nbv."""
+    """
+    The heading a section of the tangible assets note feeds: its cost, its depreciation or its net book value.
+    """
     section = section.lower()
+
     if section.startswith(("cost", "valuation")):
-        return "cost"
+        return "tangible_cost"
+
     if section.startswith(("depreciation", "accumulated depreciation")):
-        return "depreciation"
+        return "accumulated_depreciation"
+
     if section.startswith(("net book", "carrying")):
-        return "nbv"
+        return "net_book_value"
+
     return None
 
 
 def value_column(table):
-    """The key of the column holding totals in a note table (the 'Total' column, else the last)."""
+    """
+    The key of the column holding totals in a note table (the 'Total' column, else the last).
+    """
     for column in table["columns"]:
         if column["key"] == "total" or column["label"].lower().startswith("total"):
             return column["key"]
+
     return table["columns"][-1]["key"] if table["columns"] else None
 
 
 def statement_heading(row):
-    """The standard heading of a statement row, or None: its own label, else the section it closes."""
+    """
+    The standard heading of a statement row, or None: its own label, else the section it closes.
+    """
     field = row.get("standard")
+
     if not field and row["kind"] == "subtotal":
         field = SECTION_SUBTOTALS.get(row["section"].lower())
+
     if not field:
         field = next((f for s, l, f in SECTION_RULES if s.search(row["section"]) and l.search(row["label"])), None)
+
     return field
 
 
 def employees_row(table):
-    """The row of an employees note that holds the headcount: 'Total', else 'Average', else the only row."""
+    """
+    The row of an employees note that holds the headcount: 'Total', else 'Average', else the only row.
+    """
     rows = table["rows"]
+
     return (next((r for r in rows if r["label"].lower().startswith("total")), None)
             or next((r for r in rows if r["label"].lower().startswith("average")), None)
             or (rows[0] if len(rows) == 1 else None))
 
 
 def unique_by_label(items):
-    """Drop repeats of the same statement and label (a label can appear in several columns or periods)."""
+    """
+    Drop repeats of the same statement and label (a label can appear in several columns or periods).
+    """
     seen, unique = set(), []
+
     for item in items:
         marker = (item["statement"], item["label"])
+
         if marker not in seen:
             seen.add(marker)
             unique.append(item)
+
     return unique
 
 
 class Standardiser:
-    """Collects the figures of one filing under the fixed headings (see standardise)."""
+    """
+    Collects the figures of one filing under the fixed headings (see standardise).
+    """
 
     def __init__(self, result):
         self.company = result.get("company", {})
@@ -164,38 +191,50 @@ class Standardiser:
         self.unmapped, self.conflicts, self.inferred = [], [], []
 
     def put(self, entity, iso, field, value, source, status=None, create=True):
-        """Record one figure, keeping the first value if a heading turns up twice."""
+        """
+        Record one figure, keeping the first value if a heading turns up twice.
+        """
         periods = self.entities.setdefault(entity, {})
+
         if iso not in periods:
             if not create:
                 return
+
             periods[iso] = blank_period()
         block = periods[iso]
+
         if status and not block["status"]:
             block["status"] = status
         group = FIELD_GROUP[field]
+
         if block[group][field] is None:
             block[group][field] = value
+
         elif block[group][field] != value:
             self.conflicts.append({"entity": entity, "period_end": iso, "heading": f"{group}.{field}",
                                    "kept": block[group][field], "ignored": value, "source": source})
 
-    # ---- statements: each row's standard label names its heading ----
+    # Statements: each row's standard label names its heading
     def add_statement(self, table):
         if "cash flow" in table["name"].lower():
             return  # its adjustments ("Taxation", "Interest receivable") are not the results
+
         table_entity = entity_of(table["name"]) or "company"
         # One table can hold both: "Group  2025  2024  Company  2025  2024".
         periods = [(c["key"], c["period_end"], c["status"], entity_of(c["label"]) or table_entity)
                    for c in table["columns"] if c["period_end"]]
+
         if not periods:
             return  # e.g. a statement of changes in members' interests
+
         for row in table["rows"]:
             if all(v is None for v in row["values"].values()):
                 continue
             field = statement_heading(row)
+
             if field:
                 self.add_statement_row(table, row, field, periods)
+
             elif row["kind"] != "subtotal":
                 self.unmapped.append({"statement": table["name"], "section": row["section"], "label": row["label"]})
 
@@ -205,40 +244,49 @@ class Standardiser:
             value = row["values"].get(key)
             if value is None:
                 continue
+
             self.put(entity, iso, field, value, f"{table['name']} / {row['label']}", status)
+
             if f"nil_assumed:{key}" in row.get("flags", []):  # a dash the OCR dropped, taken as nil
                 self.inferred.append({"entity": entity, "period_end": iso,
                                       "heading": f"{FIELD_GROUP[field]}.{field}", "reason": "nil_assumed"})
 
-    # ---- notes: depreciation and employees ----
+    # Notes: depreciation and employees
     def add_tangible_note(self, table):
         key = value_column(table)
+
         for row in table["rows"]:
-            part, value = note_section(row["section"]), row["values"].get(key)
-            if part is None or value is None:
+            field, value = note_section(row["section"]), row["values"].get(key)
+            if field is None or value is None:
                 continue
+
             source = f"{table['name']} / {row['label']}"
-            if part == "depreciation" and re.search(r"charge|for the (year|period)", row["label"], re.I):
+
+            if field == "accumulated_depreciation" and re.search(r"charge|for the (year|period)", row["label"], re.I):
                 if self.period_end:
                     self.put(self.note_entity, self.period_end, "depreciation_charge", value, source)
                 continue
+
             # "At 1 May 2025" is the end of the previous period; a row can name two dates.
             for d in find_dates(row["label"]):
                 iso = (d - timedelta(days=1) if d.day == 1 else d).isoformat()
-                self.put(self.note_entity, iso, NOTE_SECTIONS[part], value, source, create=(iso == self.period_end))
+                self.put(self.note_entity, iso, field, value, source, create=(iso == self.period_end))
 
     def add_employees_note(self, table):
         chosen = employees_row(table)
         for column in table["columns"]:
             value = chosen["values"].get(column["key"]) if chosen else None
+
             if column["period_end"] and value is not None:
                 self.put(self.note_entity, column["period_end"], "average_employees", value,
                          f"{table['name']} / {chosen['label']}", create=True)
 
     def add_note(self, table):
         name = table["name"].lower()
+
         if re.search(r"\btangible\b", name):
             self.add_tangible_note(table)
+
         elif "employee" in name:
             self.add_employees_note(table)
 
@@ -264,8 +312,11 @@ def standardise(result):
     `conflicts`, plus the currency and unit the figures are in.
     """
     standardiser = Standardiser(result)
+
     for table in standardiser.statements:
         standardiser.add_statement(table)
+
     for table in standardiser.notes:
         standardiser.add_note(table)
+
     return standardiser.result()

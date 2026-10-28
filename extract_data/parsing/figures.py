@@ -11,20 +11,9 @@ import calendar
 import re
 from datetime import date
 
-
-def parse_number(text):
-    """A whole number written with or without thousands separators; negative in brackets or with a minus."""
-    text = text.strip()
-    negative = text.startswith(("(", "-"))
-    digits = text.strip("()-")
-    if re.fullmatch(r"\d{1,3}([.,]\d{3})+|\d+", digits):
-        value = int(re.sub(r"[.,]", "", digits))
-        return -value if negative else value
-    return None
-
-
 DASH = re.compile(r"^[-–—]+$")
 NUMBER_TOKEN = re.compile(r"^\(?-?[\d.,]+\)?$")
+PLAIN_NUMBER = re.compile(r"^(\()?(-)?(\d+)(\))?$")  # a whole number with no separators
 DECIMAL = re.compile(r"^(\()?(-)?(\d{1,3}(?:,\d{3})*|\d+)\.(\d+)(\))?$")
 # A whole-pound figure with thousands separators.  The OCR often misreads the
 # separators: "26.887" (full stop), "(229, 190)" (extra space), "214,. 125" (stray dot).
@@ -46,26 +35,37 @@ def to_number(token):
     * "-" -> 0 (a dash in an accounts table means nil)
     """
     token = token.strip()
+
     if DASH.match(token):
         return 0
+
     if re.search(r"[\d)][.,]$", token):  # "7,667." - a full stop after the figure
         token = token[:-1]
     thousands = THOUSANDS.match(token)
+
     if thousands:
         return signed(int(thousands.group(3) + re.sub(r"\D", "", thousands.group(4))), thousands)
+
     if not NUMBER_TOKEN.match(token):
         return None
-    number = parse_number(token)
-    if number is not None:
-        return number
+
+    plain = PLAIN_NUMBER.match(token)
+
+    if plain:
+        return signed(int(plain.group(3)), plain)
+
     decimal = DECIMAL.match(token)
+
     if decimal:
         return signed(float(decimal.group(3).replace(",", "") + "." + decimal.group(4)), decimal)
+
     return None
 
 
 def signed(value, match):
-    """`value`, made negative if the match started with a bracket or a minus sign (groups 1 and 2)."""
+    """
+    `value`, made negative if the match started with a bracket or a minus sign (groups 1 and 2).
+    """
     return -value if match.group(1) or match.group(2) else value
 
 
@@ -86,7 +86,7 @@ def same(a, b):
     return abs(a - b) <= 0.0051
 
 
-# ------------------------------------------------------------------- dates
+# Dates
 
 MONTHS = {name.lower(): number for number, name in enumerate(calendar.month_name) if name}
 MONTHS.update({name.lower(): number for number, name in enumerate(calendar.month_abbr) if name})
@@ -96,31 +96,43 @@ DATE_MDY = re.compile(r"([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?[,.]?\s+(\
 
 
 def make_date(year, month_text, day):
-    """Build a date from text parts, or None if they are not a real date."""
+    """
+    Build a date from text parts, or None if they are not a real date.
+    """
     month = MONTHS.get(month_text.lower())
+
     if not month:
         return None
+
     try:
         return date(int(year), month, int(day))
+
     except ValueError:
         return None
 
 
 def find_dates(text):
-    """All dates written in `text`, in the order they appear."""
+    """
+    All dates written in `text`, in the order they appear.
+    """
     found = []
+
     for m in DATE_DMY.finditer(text):
         d = make_date(m.group(3), m.group(2), m.group(1))
+
         if d:
             found.append((m.start(), d))
+
     for m in DATE_MDY.finditer(text):
         d = make_date(m.group(3), m.group(1), m.group(2))
+
         if d:
             found.append((m.start(), d))
+
     return [d for _, d in sorted(found)]
 
 
-# ------------------------------------------------------- currency and units
+# Currency and units
 
 # "$ million", "£'000", "£000".  OCR often reads "$" as "S", so a capital S
 # is accepted, but only when a unit word follows it.
@@ -132,11 +144,15 @@ MULTIPLIER = {"million": 1_000_000, "mn": 1_000_000, "m": 1_000_000,
 
 
 def detect_units(text):
-    """Return (currency, multiplier) found in header text, e.g. ('USD', 1000000)."""
+    """
+    Return (currency, multiplier) found in header text, e.g. ('USD', 1000000).
+    """
     m = UNITS.search(text)
     if m:
         return CURRENCY_SYMBOL[m.group(1).upper()], MULTIPLIER[m.group(2).lower()]
+
     for symbol in "£$€":
         if symbol in text:
             return CURRENCY_SYMBOL[symbol], 1
+
     return None, None

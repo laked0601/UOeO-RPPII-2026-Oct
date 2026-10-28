@@ -24,28 +24,32 @@ import pymupdf  # PyMuPDF: opens the PDF and renders pages to pixel images
 from rapidocr_onnxruntime import RapidOCR
 
 from extract_data.jsonio import write_json
-from extract_data.parsing.rows import to_lines
 from extract_data.reading import gpu
 
-# A page needs at least this many words in its text layer to be trusted.  Scans made by
-# tiff2pdf have none; a page number or stamp on an otherwise scanned page is only a few.
+# A page needs at least this many words in its text layer to be trusted.
+# Scans made by tiff2pdf have none; a page number or stamp on an otherwise scanned page is only a few.
 MIN_TEXT_WORDS = 30
+
 # Words closer together than this fraction of their height belong to one fragment
 # ("Cost of sales"); the wide gaps between table columns start a new fragment.
 WORD_GAP_RATIO = 0.6
+
 DEFAULT_DPI = 300  # a good balance for OCR; lower makes small table digits unreliable
+
 # A scanned page is read again at REREAD_DPI if the OCR is unsure of some of its text: a piece of text of
 # at least DOUBTFUL_MIN_CHARS characters whose confidence is below DOUBTFUL_SCORE (garbled lines score
 # about 0.3, ordinary text 0.8 or more).  Short pieces such as page numbers are always a little unsure.
 REREAD_DPI = 450
 DOUBTFUL_SCORE = 0.5
 DOUBTFUL_MIN_CHARS = 3
+
 # RapidOCR can turn each line of text the right way up before reading it (the "angle classifier").  On upright
 # pages, which nearly all scans are, it sometimes turns a line upside down by mistake and costs time:
 # on 120 scanned pages it left 36 doubtful lines against 2 without it, and took 14% longer.  So it is
 # only used for a page that reads badly without it, which is what an upside-down scan does: at least
 # UNREADABLE_MIN doubtful pieces of text, and more than half of all its pieces.
 UNREADABLE_MIN = 5
+
 # The OCR often reads the pound sign as "f": "f127,964", "f 461,856", "(2014 - f 488,644 )".
 POUND_SIGN = re.compile(r"(?<![A-Za-z0-9])f(?=\s?\d)")
 
@@ -204,7 +208,7 @@ def cache_path(pdf_path, out_dir):
 
 def save_cache(pdf_path, out_dir, pages):
     """Write the pages to the OCR cache file."""
-    write_json(cache_path(pdf_path, out_dir), pages)
+    write_json(cache_path(pdf_path, out_dir), pages, indent=None)
 
 
 def read_page(engine, page, dpi, reread):
@@ -274,7 +278,7 @@ def is_scan(page):
     return len(page.get_text("words")) < MIN_TEXT_WORDS
 
 
-def reocr_pages(pdf_path, numbers, dpi):
+def re_ocr_pages(pdf_path, numbers, dpi):
     """
     OCR the given pages (numbered from 1) again at `dpi`; return {page number: rows}.
 
@@ -299,7 +303,10 @@ def ocr_pdf(pdf_path, out_dir, dpi=DEFAULT_DPI, use_cache=True, use_text_layer=T
     cached = cache_path(pdf_path, out_dir)
 
     if use_cache and cached.exists():
-        return json.loads(cached.read_text(encoding="utf-8"))
+        try:
+            return json.loads(cached.read_text(encoding="utf-8"))
+        except ValueError:
+            pass  # a cache cut short by a stopped run: read the PDF again
 
     pages = read_pages(pdf_path, dpi, use_text_layer)
     save_cache(pdf_path, out_dir, pages)
@@ -308,5 +315,9 @@ def ocr_pdf(pdf_path, out_dir, dpi=DEFAULT_DPI, use_cache=True, use_text_layer=T
 
 def write_text_dump(pages, path):
     """Raw text, page by page, so a human can compare it against the original scan."""
-    raw = "\n".join(f"PAGE {i}\n" + "\n".join(to_lines(page)) for i, page in enumerate(pages, 1))
-    path.write_text(raw, encoding="utf-8")
+    sections = []
+
+    for number, rows in enumerate(pages, 1):
+        lines = ["  ".join(fragment[1] for fragment in row) for row in rows]  # a row's pieces, two spaces apart
+        sections.append(f"PAGE {number}\n" + "\n".join(lines))
+    path.write_text("\n".join(sections), encoding="utf-8")
